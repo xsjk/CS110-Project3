@@ -1,6 +1,6 @@
 #include "d2q9_bgk.h"
 #include <omp.h>
-#include <emmintrin.h>
+#include <immintrin.h>
 
 /* The main processes in one step */
 int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells);
@@ -27,6 +27,11 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   const float w0 = 4.f / 9.f;   /* weighting factor */
   const float w1 = 1.f / 9.f;   /* weighting factor */
   const float w2 = 1.f / 36.f;  /* weighting factor */
+
+  const float inv_c_sq = 3.f;
+  const float inv_2c_sq2 = 4.5f;
+  const float one = 1.f;
+  
 
   /* loop over the cells in the grid
   ** the collision step is called before
@@ -70,6 +75,8 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
         for (int kk = 0; kk < NSPEEDS; kk++)
           local_density += cells[ii + jj*params.nx].speeds[kk];
 
+        __m256 local_densityv = _mm256_broadcast_ss(&local_density);
+
         /* compute x velocity component */
         float u_x = (cells[ii + jj*params.nx].speeds[1]
                       + cells[ii + jj*params.nx].speeds[5]
@@ -89,6 +96,8 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
 
         /* velocity squared */
         float u_sq = u_x * u_x + u_y * u_y;
+        float uu_sq = u_sq / (2.f * c_sq);
+        __m256 uu_sqv = _mm256_broadcast_ss(&uu_sq);
 
         /* directional velocity components */
         float u[NSPEEDS];
@@ -104,37 +113,28 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
 
         /* equilibrium densities */
         float d_equ[NSPEEDS];
-        /* zero velocity density: weight w0 */
+        d_equ[0] = w0 * local_density * (1.f - u_sq / (2.f * c_sq));
 
-        d_equ[0] = w0 * local_density * (1.f + u[0] / c_sq
-                                         + (u[0] * u[0]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        /* axis speeds: weight w1 */
-        d_equ[1] = w1 * local_density * (1.f + u[1] / c_sq
-                                         + (u[1] * u[1]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[2] = w1 * local_density * (1.f + u[2] / c_sq
-                                         + (u[2] * u[2]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[3] = w1 * local_density * (1.f + u[3] / c_sq
-                                         + (u[3] * u[3]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[4] = w1 * local_density * (1.f + u[4] / c_sq
-                                         + (u[4] * u[4]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        /* diagonal speeds: weight w2 */
-        d_equ[5] = w2 * local_density * (1.f + u[5] / c_sq
-                                         + (u[5] * u[5]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[6] = w2 * local_density * (1.f + u[6] / c_sq
-                                         + (u[6] * u[6]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[7] = w2 * local_density * (1.f + u[7] / c_sq
-                                         + (u[7] * u[7]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[8] = w2 * local_density * (1.f + u[8] / c_sq
-                                         + (u[8] * u[8]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
+
+        __m256 uv = _mm256_loadu_ps(u+1);
+        __m256 onev = _mm256_broadcast_ss(&one);
+        __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
+        __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
+        __m256 u2v = _mm256_mul_ps(uv, uv);
+        __m128 w1v = _mm_broadcast_ss(&w1);
+        __m128 w2v = _mm_broadcast_ss(&w2);
+        __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
+
+        // w1  * local_density * (1.f + u[1] / c_sq + (u[1] * u[1]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
+        // w12 * local_density * (  1 +  u * c_sq_1 +      u2       *     inv_2c_sq2v     -      uu_sqv        );
+        //         _3            (       _1         +                    _2                                    );
+        
+        __m256 _1 = _mm256_fmadd_ps(uv, inv_c_sqv, onev);
+        __m256 _2 = _mm256_fmsub_ps(u2v, inv_2c_sq2v, uu_sqv);
+        __m256 _3 = _mm256_mul_ps(w12v, local_densityv);
+        _mm256_storeu_ps(d_equ+1, _mm256_mul_ps(_3, _mm256_add_ps(_1, _2)));
+        
+        
         /* relaxation step */
         #pragma GCC unroll 9
         for (int kk = 0; kk < NSPEEDS; kk++)
