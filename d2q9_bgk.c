@@ -1,32 +1,28 @@
 #include "d2q9_bgk.h"
-
+#include <omp.h>
+#include <emmintrin.h>
 
 /* The main processes in one step */
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells);
-int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int boundary(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets);
+int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells);
+int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets);
+int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles);
 
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
 ** collision(), obstacle(), streaming() & boundary()
 */
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets, int* obstacles)
+int timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, const float* restrict inlets, const int* restrict obstacles)
 {
   /* The main time overhead, you should mainly optimize these processes. */
-  collision(params, cells, tmp_cells, obstacles);
-  obstacle(params, cells, tmp_cells, obstacles);
+  collision_and_obstacle(params, cells, tmp_cells, obstacles);
   streaming(params, cells, tmp_cells);
   boundary(params, cells, tmp_cells, inlets);
   return EXIT_SUCCESS;
 }
 
-/*
-** The collision of fluids in the cell is calculated using 
-** the local equilibrium distribution and relaxation process
-*/
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles) {
+
+int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles) {
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
   const float w0 = 4.f / 9.f;   /* weighting factor */
   const float w1 = 1.f / 9.f;   /* weighting factor */
@@ -36,19 +32,43 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
   ** the collision step is called before
   ** the streaming step and so values of interest
   ** are in the scratch-space grid */
-  
-  for (int ii = 0; ii < params.nx; ii++)
-  {
-    for (int jj = 0; jj < params.ny; jj++)
-    {
-      if (!obstacles[ii + jj*params.nx]){
+  #pragma omp parallel for schedule(dynamic, 1) collapse(2)
+  for (int jj = 0; jj < params.ny; jj++)
+    for (int ii = 0; ii < params.nx; ii++) {
+      if (__builtin_expect(obstacles[jj*params.nx + ii], 0)) 
+
+      /*
+      ** For obstacles, mirror their speed.
+      */
+
+      {
+        /* called after collision, so taking values from scratch space
+        ** mirroring, and writing into main grid */
+        tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0];
+        tmp_cells[ii + jj*params.nx].speeds[1] = cells[ii + jj*params.nx].speeds[3];
+        tmp_cells[ii + jj*params.nx].speeds[2] = cells[ii + jj*params.nx].speeds[4];
+        tmp_cells[ii + jj*params.nx].speeds[3] = cells[ii + jj*params.nx].speeds[1];
+        tmp_cells[ii + jj*params.nx].speeds[4] = cells[ii + jj*params.nx].speeds[2];
+        tmp_cells[ii + jj*params.nx].speeds[5] = cells[ii + jj*params.nx].speeds[7];
+        tmp_cells[ii + jj*params.nx].speeds[6] = cells[ii + jj*params.nx].speeds[8];
+        tmp_cells[ii + jj*params.nx].speeds[7] = cells[ii + jj*params.nx].speeds[5];
+        tmp_cells[ii + jj*params.nx].speeds[8] = cells[ii + jj*params.nx].speeds[6];
+      } 
+
+      else 
+
+      /*
+      ** The collision of fluids in the cell is calculated using 
+      ** the local equilibrium distribution and relaxation process
+      */
+
+      {
         /* compute local density total */
         float local_density = 0.f;
 
+        #pragma GCC unroll 9
         for (int kk = 0; kk < NSPEEDS; kk++)
-        {
           local_density += cells[ii + jj*params.nx].speeds[kk];
-        }
 
         /* compute x velocity component */
         float u_x = (cells[ii + jj*params.nx].speeds[1]
@@ -116,57 +136,24 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
                                          + (u[8] * u[8]) / (2.f * c_sq * c_sq)
                                          - u_sq / (2.f * c_sq));
         /* relaxation step */
+        #pragma GCC unroll 9
         for (int kk = 0; kk < NSPEEDS; kk++)
-        {
           tmp_cells[ii + jj*params.nx].speeds[kk] = cells[ii + jj*params.nx].speeds[kk]
                                                   + params.omega
                                                   * (d_equ[kk] - cells[ii + jj*params.nx].speeds[kk]);
-        }
       }
     }
-  }
-  return EXIT_SUCCESS;
-}
-
-/*
-** For obstacles, mirror their speed.
-*/
-int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles) {
-
-  /* loop over the cells in the grid */
-  for (int ii = 0; ii < params.nx; ii++)
-  {
-    for (int jj = 0; jj < params.ny; jj++)
-    {
-      /* if the cell contains an obstacle */
-      if (obstacles[jj*params.nx + ii])
-      {
-        /* called after collision, so taking values from scratch space
-        ** mirroring, and writing into main grid */
-        tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0];
-        tmp_cells[ii + jj*params.nx].speeds[1] = cells[ii + jj*params.nx].speeds[3];
-        tmp_cells[ii + jj*params.nx].speeds[2] = cells[ii + jj*params.nx].speeds[4];
-        tmp_cells[ii + jj*params.nx].speeds[3] = cells[ii + jj*params.nx].speeds[1];
-        tmp_cells[ii + jj*params.nx].speeds[4] = cells[ii + jj*params.nx].speeds[2];
-        tmp_cells[ii + jj*params.nx].speeds[5] = cells[ii + jj*params.nx].speeds[7];
-        tmp_cells[ii + jj*params.nx].speeds[6] = cells[ii + jj*params.nx].speeds[8];
-        tmp_cells[ii + jj*params.nx].speeds[7] = cells[ii + jj*params.nx].speeds[5];
-        tmp_cells[ii + jj*params.nx].speeds[8] = cells[ii + jj*params.nx].speeds[6];
-      }
-    }
-  }
   return EXIT_SUCCESS;
 }
 
 /*
 ** Particles flow to the corresponding cell according to their speed direaction.
 */
-int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells) {
+int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells) {
   /* loop over _all_ cells */
-  for (int ii = 0; ii < params.nx; ii++)
-  {
-    for (int jj = 0; jj < params.ny; jj++)
-    {
+  #pragma omp parallel for schedule(static) collapse(2)
+  for (int jj = 0; jj < params.ny; jj++) 
+    for (int ii = 0; ii < params.nx; ii++) {
       /* determine indices of axis-direction neighbours
       ** respecting periodic boundary conditions (wrap around) */
       int y_n = (jj + 1) % params.ny;
@@ -186,7 +173,6 @@ int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells) {
       cells[x_w + y_s*params.nx].speeds[7] = tmp_cells[ii + jj*params.nx].speeds[7]; /* south-west */
       cells[x_e + y_s*params.nx].speeds[8] = tmp_cells[ii + jj*params.nx].speeds[8]; /* south-east */
     }
-  }
 
   return EXIT_SUCCESS;
 }
@@ -196,7 +182,7 @@ int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells) {
 ** the left border is the inlet of fixed speed, and 
 ** the right border is the open outlet of the first-order approximation.
 */
-int boundary(const t_param params, t_speed* cells,  t_speed* tmp_cells, float* inlets) {
+int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets) {
   /* Set the constant coefficient */
   const float cst1 = 2.0/3.0;
   const float cst2 = 1.0/6.0;
@@ -248,11 +234,9 @@ int boundary(const t_param params, t_speed* cells,  t_speed* tmp_cells, float* i
   // right wall (outlet)
   ii = params.nx-1;
   for(jj = 0; jj < params.ny; jj++){
-
+    #pragma GCC unroll 9
     for (int kk = 0; kk < NSPEEDS; kk++)
-    {
       cells[ii + jj*params.nx].speeds[kk] = cells[ii-1 + jj*params.nx].speeds[kk];
-    }
     
   }
   
