@@ -1,4 +1,5 @@
 #include "types.h"
+#include "mm_malloc.h"
 
 /* utility functions */
 void die(const char* message, const int line, const char* file)
@@ -72,15 +73,15 @@ int initialise(const char* paramfile, const char* obstaclefile,
   /* Allocate memory. */
 
   /* main grid */
-  *cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
+  *cells_ptr = _mm_malloc(sizeof(t_speed) * (params->ny * params->nx), 32);
   if (*cells_ptr == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
   /* 'helper' grid, used as scratch space */
-  *tmp_cells_ptr = (t_speed*)malloc(sizeof(t_speed) * (params->ny * params->nx));
+  *tmp_cells_ptr = _mm_malloc(sizeof(t_speed) * (params->ny * params->nx), 32);
   if (*tmp_cells_ptr == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
 
   /* the map of obstacles */
-  *obstacles_ptr = malloc(sizeof(int) * (params->ny * params->nx));
+  *obstacles_ptr = _mm_malloc(sizeof(int) * (params->ny * params->nx), 32);
   if (*obstacles_ptr == NULL) die("cannot allocate column memory for obstacles", __LINE__, __FILE__);
 
   /* initialise densities */
@@ -148,7 +149,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   fclose(fp);
 
   /* allocate space to hold the velocity of the cells at the inlet. */
-  *inlets_ptr = (float*)malloc(sizeof(float) * params->ny);
+  *inlets_ptr = _mm_malloc(sizeof(float) * params->ny, 32);
 
   return EXIT_SUCCESS;
 }
@@ -160,16 +161,16 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
   /*
   ** free up allocated memory
   */
-  free(*cells_ptr);
+  _mm_free(*cells_ptr);
   *cells_ptr = NULL;
 
-  free(*tmp_cells_ptr);
+  _mm_free(*tmp_cells_ptr);
   *tmp_cells_ptr = NULL;
 
-  free(*obstacles_ptr);
+  _mm_free(*obstacles_ptr);
   *obstacles_ptr = NULL;
 
-  free(*inlets);
+  _mm_free(*inlets);
   *inlets = NULL;
 
   return EXIT_SUCCESS;
