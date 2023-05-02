@@ -1,7 +1,7 @@
 # Makefile
 CC = gcc
-CFLAGS = -std=c99 -Wall -O3 -mavx -march=native # -fopt-info-vec-optimized -fopt-info-vec-missed -fopt-info-vec-note -ftree-vectorize -ftree-vectorizer-verbose=2
-LIBS = -lm -fopenmp
+CFLAGS = -std=c99 -Wall -Ofast -mavx2 -march=native # -fopt-info-vec-optimized -fopt-info-vec-missed -fopt-info-vec-note -ftree-vectorize -ftree-vectorizer-verbose=2
+LIBS = -lm -fopenmp -fopenmp-simd
 SRC = main.c d2q9_bgk.c calc.c utils.c 
 EXE=lbm
 

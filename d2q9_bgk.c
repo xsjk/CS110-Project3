@@ -31,7 +31,14 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   const float inv_c_sq = 3.f;
   const float inv_2c_sq2 = 4.5f;
   const float one = 1.f;
-  
+
+  __m128 w1v = _mm_broadcast_ss(&w1);
+  __m128 w2v = _mm_broadcast_ss(&w2);
+  __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
+
+  __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
+  __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
+  __m256 onev = _mm256_broadcast_ss(&one);
 
   /* loop over the cells in the grid
   ** the collision step is called before
@@ -50,14 +57,10 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
         /* called after collision, so taking values from scratch space
         ** mirroring, and writing into main grid */
         tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0];
-        tmp_cells[ii + jj*params.nx].speeds[1] = cells[ii + jj*params.nx].speeds[3];
-        tmp_cells[ii + jj*params.nx].speeds[2] = cells[ii + jj*params.nx].speeds[4];
-        tmp_cells[ii + jj*params.nx].speeds[3] = cells[ii + jj*params.nx].speeds[1];
-        tmp_cells[ii + jj*params.nx].speeds[4] = cells[ii + jj*params.nx].speeds[2];
-        tmp_cells[ii + jj*params.nx].speeds[5] = cells[ii + jj*params.nx].speeds[7];
-        tmp_cells[ii + jj*params.nx].speeds[6] = cells[ii + jj*params.nx].speeds[8];
-        tmp_cells[ii + jj*params.nx].speeds[7] = cells[ii + jj*params.nx].speeds[5];
-        tmp_cells[ii + jj*params.nx].speeds[8] = cells[ii + jj*params.nx].speeds[6];
+        
+        __m256 cellsv = _mm256_loadu_ps(cells[ii + jj*params.nx].speeds + 1);
+        __m256 tmp_cellsv = _mm256_permute_ps(cellsv, 0b01001110);
+        _mm256_storeu_ps(tmp_cells[ii + jj*params.nx].speeds + 1, tmp_cellsv);
       } 
 
       else 
@@ -71,7 +74,6 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
         /* compute local density total */
         float local_density = 0.f;
 
-        #pragma GCC unroll 9
         for (int kk = 0; kk < NSPEEDS; kk++)
           local_density += cells[ii + jj*params.nx].speeds[kk];
 
@@ -82,17 +84,20 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
                       + cells[ii + jj*params.nx].speeds[5]
                       + cells[ii + jj*params.nx].speeds[8]
                       - (cells[ii + jj*params.nx].speeds[3]
-                         + cells[ii + jj*params.nx].speeds[6]
-                         + cells[ii + jj*params.nx].speeds[7]))
-                     / local_density;
+                        + cells[ii + jj*params.nx].speeds[6]
+                        + cells[ii + jj*params.nx].speeds[7]))
+                    / local_density;
+        __m256 u_xv = _mm256_broadcast_ss(&u_x);
+        
         /* compute y velocity component */
         float u_y = (cells[ii + jj*params.nx].speeds[2]
                       + cells[ii + jj*params.nx].speeds[5]
                       + cells[ii + jj*params.nx].speeds[6]
                       - (cells[ii + jj*params.nx].speeds[4]
-                         + cells[ii + jj*params.nx].speeds[7]
-                         + cells[ii + jj*params.nx].speeds[8]))
-                     / local_density;
+                        + cells[ii + jj*params.nx].speeds[7]
+                        + cells[ii + jj*params.nx].speeds[8]))
+                    / local_density;
+        __m256 u_yv = _mm256_broadcast_ss(&u_y);
 
         /* velocity squared */
         float u_sq = u_x * u_x + u_y * u_y;
@@ -100,47 +105,26 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
         __m256 uu_sqv = _mm256_broadcast_ss(&uu_sq);
 
         /* directional velocity components */
-        float u[NSPEEDS];
-        u[0] = 0;            /* zero */
-        u[1] =   u_x;        /* east */
-        u[2] =         u_y;  /* north */
-        u[3] = - u_x;        /* west */
-        u[4] =       - u_y;  /* south */
-        u[5] =   u_x + u_y;  /* north-east */
-        u[6] = - u_x + u_y;  /* north-west */
-        u[7] = - u_x - u_y;  /* south-west */
-        u[8] =   u_x - u_y;  /* south-east */
-
-        /* equilibrium densities */
-        float d_equ[NSPEEDS];
-        d_equ[0] = w0 * local_density * (1.f - u_sq / (2.f * c_sq));
-
-
-        __m256 uv = _mm256_loadu_ps(u+1);
-        __m256 onev = _mm256_broadcast_ss(&one);
-        __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
-        __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
+        __m256 _ku_x = _mm256_set_ps( 1, -1,-1, 1, 0,-1, 0, 1);
+        __m256 _ku_y = _mm256_set_ps(-1, -1, 1, 1,-1, 0, 1, 0);
+        __m256 uv = _mm256_fmadd_ps(_ku_y, u_yv, _mm256_mul_ps(_ku_x, u_xv));
         __m256 u2v = _mm256_mul_ps(uv, uv);
-        __m128 w1v = _mm_broadcast_ss(&w1);
-        __m128 w2v = _mm_broadcast_ss(&w2);
-        __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
-
-        // w1  * local_density * (1.f + u[1] / c_sq + (u[1] * u[1]) / (2.f * c_sq * c_sq) - u_sq / (2.f * c_sq));
-        // w12 * local_density * (  1 +  u * c_sq_1 +      u2       *     inv_2c_sq2v     -      uu_sqv        );
-        //         _3            (       _1         +                    _2                                    );
         
+        /* equilibrium densities */
+        tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0]
+                                                + params.omega
+                                                * ((w0 * local_density * (1.f - uu_sq)) 
+                                                  - cells[ii + jj*params.nx].speeds[0]);
         __m256 _1 = _mm256_fmadd_ps(uv, inv_c_sqv, onev);
         __m256 _2 = _mm256_fmsub_ps(u2v, inv_2c_sq2v, uu_sqv);
         __m256 _3 = _mm256_mul_ps(w12v, local_densityv);
-        _mm256_storeu_ps(d_equ+1, _mm256_mul_ps(_3, _mm256_add_ps(_1, _2)));
-        
+        __m256 d_equv = _mm256_mul_ps(_3, _mm256_add_ps(_1, _2));
         
         /* relaxation step */
-        #pragma GCC unroll 9
-        for (int kk = 0; kk < NSPEEDS; kk++)
-          tmp_cells[ii + jj*params.nx].speeds[kk] = cells[ii + jj*params.nx].speeds[kk]
-                                                  + params.omega
-                                                  * (d_equ[kk] - cells[ii + jj*params.nx].speeds[kk]);
+        __m256 omegav = _mm256_broadcast_ss(&params.omega);
+        __m256 cellsv = _mm256_loadu_ps(cells[ii + jj*params.nx].speeds+1);
+        __m256 tmp_cellsv = _mm256_fmadd_ps(omegav, _mm256_sub_ps(d_equv, cellsv), cellsv);
+        _mm256_storeu_ps(tmp_cells[ii + jj*params.nx].speeds+1, tmp_cellsv);
       }
     }
   return EXIT_SUCCESS;
@@ -234,7 +218,6 @@ int boundary(const t_param params, t_speed* restrict cells, const t_speed* restr
   // right wall (outlet)
   ii = params.nx-1;
   for(jj = 0; jj < params.ny; jj++){
-    #pragma GCC unroll 9
     for (int kk = 0; kk < NSPEEDS; kk++)
       cells[ii + jj*params.nx].speeds[kk] = cells[ii-1 + jj*params.nx].speeds[kk];
     
