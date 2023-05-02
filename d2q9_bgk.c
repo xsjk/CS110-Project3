@@ -9,26 +9,25 @@
  (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | (fp0))
 
 /* The main processes in one step */
-int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells);
-int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets);
-int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles);
+int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const int n_iter);
+int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets, const int n_iter);
+int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles, const int n_iter);
 
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
 ** collision(), obstacle(), streaming() & boundary()
 */
-int timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, const float* restrict inlets, const int* restrict obstacles)
+int timestep(const t_param params, t_speed* restrict cells, t_speed* restrict tmp_cells, const float* restrict inlets, const int* restrict obstacles, const int n_iter)
 {
-  /* The main time overhead, you should mainly optimize these processes. */
-  collision_and_obstacle(params, cells, tmp_cells, obstacles);
-  streaming(params, cells, tmp_cells);
-  boundary(params, cells, tmp_cells, inlets);
+  collision_and_obstacle(params, cells, tmp_cells, obstacles, n_iter);
+  streaming(params, cells, tmp_cells, n_iter);
+  boundary(params, cells, tmp_cells, inlets, n_iter);
   return EXIT_SUCCESS;
 }
 
 
-int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles) {
+int collision_and_obstacle(const t_param params, const t_speed* restrict cells, t_speed* restrict tmp_cells, const int* restrict obstacles, const int n_iter) {
   /* All the const quantities are unnecessary 
    * since the compiler is smart enough. */
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
@@ -40,9 +39,9 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   
   /* Althought _mm256_set1_ps (sequential) is slower than _mm256_broadcast_ss (parallel) 
    * Since the value can be determined at compile time, it is not necessary to use broadcast. */
-  const __m256 onev = _mm256_set1_ps(1.f);
   const __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
   const __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
+  const __m256 onev = _mm256_set1_ps(1.f);
   const __m128 w1v = _mm_broadcast_ss(&w1);
   const __m128 w2v = _mm_broadcast_ss(&w2);
   const __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
@@ -51,11 +50,11 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   ** the collision step is called before
   ** the streaming step and so values of interest
   ** are in the scratch-space grid */
-  #pragma omp parallel for schedule(dynamic) collapse(2)
+  #pragma omp parallel for schedule(dynamic)
   // for (int jj = 0; jj < params.ny; jj += 1)
   //   for (int ii = 0; ii < params.nx; ii += 1) {
   for (int j = 0; j < params.ny; j += TILE_SIZE)
-    for (int i = 0; i < params.nx; i += TILE_SIZE)
+    for (int i = 0; i < params.nx && i <= n_iter; i += TILE_SIZE)
       for (int jj = j; jj < j + TILE_SIZE; jj++)
         for (int ii = i; ii < i + TILE_SIZE; ii++) {
           if (__builtin_expect(obstacles[jj*params.nx + ii], 0)) 
@@ -147,11 +146,11 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
 /*
 ** Particles flow to the corresponding cell according to their speed direaction.
 */
-int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells) {
+int streaming(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const int n_iter) {
   /* loop over _all_ cells */
-  #pragma omp parallel for schedule(dynamic) collapse(2)
+  #pragma omp parallel for schedule(dynamic)
   for (int j = 0; j < params.ny; j += TILE_SIZE)
-    for (int i = 0; i < params.nx; i += TILE_SIZE)
+    for (int i = 0; i < params.nx && i <= n_iter; i += TILE_SIZE)
       for (int jj = j; jj < j + TILE_SIZE; jj++) 
         for (int ii = i; ii < i + TILE_SIZE; ii++) {
           /* determine indices of axis-direction neighbours
@@ -183,7 +182,7 @@ int streaming(const t_param params, t_speed* restrict cells, const t_speed* rest
 ** the left border is the inlet of fixed speed, and 
 ** the right border is the open outlet of the first-order approximation.
 */
-int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets) {
+int boundary(const t_param params, t_speed* restrict cells, const t_speed* restrict tmp_cells, const float* restrict inlets, const int n_iter) {
   /* Set the constant coefficient */
   const float cst1 = 2.0/3.0;
   const float cst2 = 1.0/6.0;
@@ -194,7 +193,7 @@ int boundary(const t_param params, t_speed* restrict cells, const t_speed* restr
   
   // top wall (bounce)
   jj = params.ny -1;
-  for(ii = 0; ii < params.nx; ii++){
+  for(ii = 0; ii < params.nx && ii <= n_iter; ii++){
     cells[ii + jj*params.nx].speeds[4] = tmp_cells[ii + jj*params.nx].speeds[2];
     cells[ii + jj*params.nx].speeds[7] = tmp_cells[ii + jj*params.nx].speeds[5];
     cells[ii + jj*params.nx].speeds[8] = tmp_cells[ii + jj*params.nx].speeds[6];
@@ -202,7 +201,7 @@ int boundary(const t_param params, t_speed* restrict cells, const t_speed* restr
 
   // bottom wall (bounce)
   jj = 0;
-  for(ii = 0; ii < params.nx; ii++){
+  for(ii = 0; ii < params.nx && ii <= n_iter; ii++){
     cells[ii + jj*params.nx].speeds[2] = tmp_cells[ii + jj*params.nx].speeds[4];
     cells[ii + jj*params.nx].speeds[5] = tmp_cells[ii + jj*params.nx].speeds[7];
     cells[ii + jj*params.nx].speeds[6] = tmp_cells[ii + jj*params.nx].speeds[8];
@@ -235,10 +234,8 @@ int boundary(const t_param params, t_speed* restrict cells, const t_speed* restr
   // right wall (outlet)
   ii = params.nx-1;
   for(jj = 0; jj < params.ny; jj++){
-    #pragma GCC unroll 9
-    for (int kk = 0; kk < NSPEEDS; kk++)
-      cells[ii + jj*params.nx].speeds[kk] = cells[ii-1 + jj*params.nx].speeds[kk];
-    
+    cells[ii + jj*params.nx].speeds[0] = cells[ii-1 + jj*params.nx].speeds[0];
+    _mm256_storeu_ps(cells[ii + jj*params.nx].speeds+1, _mm256_loadu_ps(cells[ii-1 + jj*params.nx].speeds+1));
   }
   
   return EXIT_SUCCESS;
