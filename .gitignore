@@ -2,3 +2,5 @@ results/
 *.gif
 *.png
 lbm
+.vscode
+tune
