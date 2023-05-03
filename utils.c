@@ -1,5 +1,6 @@
 #include "types.h"
-#include "mm_malloc.h"
+#include <mm_malloc.h>
+#include <string.h>
 
 /* utility functions */
 void die(const char* message, const int line, const char* file)
@@ -107,15 +108,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
       (*cells_ptr)[ii + jj*params->nx].speeds[8] = w2;
     }
   }
+  memcpy(*tmp_cells_ptr, *cells_ptr, sizeof(t_speed) * (params->ny * params->nx));
 
   /* first set all cells in obstacle array to zero */
-  for (int jj = 0; jj < params->ny; jj++)
-  {
-    for (int ii = 0; ii < params->nx; ii++)
-    {
-      (*obstacles_ptr)[ii + jj*params->nx] = 0;
-    }
-  }
+  memset(*obstacles_ptr, 0, sizeof(int) * (params->ny * params->nx));
 
   /* open the obstacle data file */
   fp = fopen(obstaclefile, "r");
