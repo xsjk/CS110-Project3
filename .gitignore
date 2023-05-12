@@ -1,6 +1,9 @@
 results/
+tune/
+test/
 *.gif
 *.png
+*.s
+*.o
 lbm
 .vscode
-tune
