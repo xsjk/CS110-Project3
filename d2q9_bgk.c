@@ -3,6 +3,7 @@
 #include <immintrin.h>
 
 #define TILE_SIZE 16
+#define constexpr const __attribute__((const))
 
 /* Create a selector for use with the SHUFPS instruction.  */
 #define _MM_SHUFFLE(fp3,fp2,fp1,fp0) \
@@ -34,15 +35,6 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   const float w2 = 1.f / 36.f;  /* weighting factor */
   const float inv_c_sq = 1.f / c_sq;
   const float inv_2c_sq2 = 1.f / (2.f * c_sq * c_sq);
-  
-  /* Althought _mm256_set1_ps (sequential) is slower than _mm256_broadcast_ss (parallel) 
-   * Since the value can be determined at compile time, it is not necessary to use broadcast. */
-  const __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
-  const __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
-  const __m256 onev = _mm256_set1_ps(1.f);
-  const __m128 w1v = _mm_broadcast_ss(&w1);
-  const __m128 w2v = _mm_broadcast_ss(&w2);
-  const __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
 
   /* loop over the cells in the grid
   ** the collision step is called before
@@ -53,9 +45,10 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
   //   for (int ii = 0; ii < params.nx; ii += 1) {
   for (int j = 0; j < params.ny; j += TILE_SIZE)
     for (int i = 0; i < params.nx && i <= n_iter; i += TILE_SIZE)
-      for (int jj = j; jj < j + TILE_SIZE && jj < params.ny; jj++)
-        for (int ii = i; ii < i + TILE_SIZE && ii < params.nx; ii++) {
-          if (__builtin_expect(obstacles[jj*params.nx + ii], 0)) 
+      for (int jj = j; jj < j + TILE_SIZE; jj++)
+        for (int ii = i; ii < i + TILE_SIZE; ii++) {
+          const int idx = ii + jj * params.nx;
+          if (__builtin_expect(obstacles[idx], 0)) 
 
           /*
           ** For obstacles, mirror their speed.
@@ -63,10 +56,10 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
           {
             /* called after collision, so taking values from scratch space
             ** mirroring, and writing into main grid */
-            tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0];
-            const __m256 cellsv = _mm256_loadu_ps(cells[ii + jj*params.nx].speeds + 1);
+            tmp_cells[idx].speeds[0] = cells[idx].speeds[0];
+            const __m256 cellsv = _mm256_loadu_ps(cells[idx].speeds + 1);
             const __m256 tmp_cellsv = _mm256_permute_ps(cellsv, _MM_SHUFFLE(1, 0, 3, 2));
-            _mm256_storeu_ps(tmp_cells[ii + jj*params.nx].speeds + 1, tmp_cellsv);
+            _mm256_storeu_ps(tmp_cells[idx].speeds + 1, tmp_cellsv);
           } 
 
           else 
@@ -81,34 +74,34 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
             #ifndef SIMD_SUM8
               float local_density = 0.f;
               for (int kk = 0; kk < NSPEEDS; kk++)
-                local_density += cells[ii + jj*params.nx].speeds[kk];
+                local_density += cells[idx].speeds[kk];
             #else
               __m256 speeds;
-              speeds = _mm256_loadu_ps(cells[ii + jj*params.nx].speeds + 1);
+              speeds = _mm256_loadu_ps(cells[idx].speeds + 1);
               speeds = _mm256_add_ps(speeds, _mm256_permute2f128_ps(speeds, speeds, 1));
               speeds = _mm256_add_ps(speeds, _mm256_shuffle_ps(speeds, speeds, _MM_SHUFFLE(1, 0, 3, 2)));
               speeds = _mm256_add_ps(speeds, _mm256_shuffle_ps(speeds, speeds, _MM_SHUFFLE(2, 3, 0, 1)));
-              const float local_density = _mm256_cvtss_f32(speeds) + cells[ii + jj*params.nx].speeds[0];
+              const float local_density = _mm256_cvtss_f32(speeds) + cells[idx].speeds[0];
             #endif
             const __m256 local_densityv = _mm256_broadcast_ss(&local_density);
 
             /* compute x velocity component */
-            const float u_x = (cells[ii + jj*params.nx].speeds[1]
-                          + cells[ii + jj*params.nx].speeds[5]
-                          + cells[ii + jj*params.nx].speeds[8]
-                          - (cells[ii + jj*params.nx].speeds[3]
-                            + cells[ii + jj*params.nx].speeds[6]
-                            + cells[ii + jj*params.nx].speeds[7]))
+            const float u_x = (cells[idx].speeds[1]
+                          + cells[idx].speeds[5]
+                          + cells[idx].speeds[8]
+                          - (cells[idx].speeds[3]
+                            + cells[idx].speeds[6]
+                            + cells[idx].speeds[7]))
                         / local_density;
             const __m256 u_xv = _mm256_broadcast_ss(&u_x);
             
             /* compute y velocity component */
-            const float u_y = (cells[ii + jj*params.nx].speeds[2]
-                          + cells[ii + jj*params.nx].speeds[5]
-                          + cells[ii + jj*params.nx].speeds[6]
-                          - (cells[ii + jj*params.nx].speeds[4]
-                            + cells[ii + jj*params.nx].speeds[7]
-                            + cells[ii + jj*params.nx].speeds[8]))
+            const float u_y = (cells[idx].speeds[2]
+                          + cells[idx].speeds[5]
+                          + cells[idx].speeds[6]
+                          - (cells[idx].speeds[4]
+                            + cells[idx].speeds[7]
+                            + cells[idx].speeds[8]))
                         / local_density;
             const __m256 u_yv = _mm256_broadcast_ss(&u_y);
 
@@ -123,11 +116,29 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
             const __m256 uv = _mm256_fmadd_ps(_ku_y, u_yv, _mm256_mul_ps(_ku_x, u_xv));
             const __m256 u2v = _mm256_mul_ps(uv, uv);
             
+
+            /* Althought _mm256_set1_ps (sequential) is slower than _mm256_broadcast_ss (parallel) 
+            * Since the value can be determined at compile time, it is not necessary to use broadcast. */
+            #ifndef BROADCAST
+              const __m256 inv_c_sqv = _mm256_set1_ps(inv_c_sq);
+              const __m256 inv_2c_sq2v = _mm256_set1_ps(inv_2c_sq2);
+              const __m256 onev = _mm256_set1_ps(1);
+              const __m256 w12v = _mm256_set_ps(w2, w2, w2, w2, w1, w1, w1, w1);
+            #else
+              const float one = 1.f;
+              const __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
+              const __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
+              const __m256 onev = _mm256_broadcast_ss(&one);
+              const __m128 w1v = _mm_broadcast_ss(&w1);
+              const __m128 w2v = _mm_broadcast_ss(&w2);
+              const __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
+            #endif
+
             /* equilibrium densities */
-            tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0]
+            tmp_cells[idx].speeds[0] = cells[idx].speeds[0]
                                                     + params.omega
                                                     * ((w0 * local_density * (1.f - uu_sq)) 
-                                                      - cells[ii + jj*params.nx].speeds[0]);
+                                                      - cells[idx].speeds[0]);
             const __m256 _1 = _mm256_fmadd_ps(uv, inv_c_sqv, onev);
             const __m256 _2 = _mm256_fmsub_ps(u2v, inv_2c_sq2v, uu_sqv);
             const __m256 _3 = _mm256_mul_ps(w12v, local_densityv);
@@ -135,9 +146,9 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
             
             /* relaxation step */
             const __m256 omegav = _mm256_broadcast_ss(&params.omega);
-            const __m256 cellsv = _mm256_loadu_ps(cells[ii + jj*params.nx].speeds+1);
+            const __m256 cellsv = _mm256_loadu_ps(cells[idx].speeds+1);
             const __m256 tmp_cellsv = _mm256_fmadd_ps(omegav, _mm256_sub_ps(d_equv, cellsv), cellsv);
-            _mm256_storeu_ps(tmp_cells[ii + jj*params.nx].speeds+1, tmp_cellsv);
+            _mm256_storeu_ps(tmp_cells[idx].speeds+1, tmp_cellsv);
             
           }
     }
