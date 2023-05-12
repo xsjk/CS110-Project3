@@ -83,7 +83,7 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
               speeds = _mm256_add_ps(speeds, _mm256_shuffle_ps(speeds, speeds, _MM_SHUFFLE(2, 3, 0, 1)));
               const float local_density = _mm256_cvtss_f32(speeds) + cells[idx].speeds[0];
             #endif
-            const __m256 local_densityv = _mm256_broadcast_ss(&local_density);
+            const __m256 local_densityv = _mm256_set1_ps(local_density);
 
             /* compute x velocity component */
             const float u_x = (cells[idx].speeds[1]
@@ -93,7 +93,7 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
                             + cells[idx].speeds[6]
                             + cells[idx].speeds[7]))
                         / local_density;
-            const __m256 u_xv = _mm256_broadcast_ss(&u_x);
+            const __m256 u_xv = _mm256_set1_ps(u_x);
             
             /* compute y velocity component */
             const float u_y = (cells[idx].speeds[2]
@@ -103,12 +103,12 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
                             + cells[idx].speeds[7]
                             + cells[idx].speeds[8]))
                         / local_density;
-            const __m256 u_yv = _mm256_broadcast_ss(&u_y);
+            const __m256 u_yv = _mm256_set1_ps(u_y);
 
             /* velocity squared */
             const float u_sq = u_x * u_x + u_y * u_y;
             const float uu_sq = u_sq / (2.f * c_sq);
-            const __m256 uu_sqv = _mm256_broadcast_ss(&uu_sq);
+            const __m256 uu_sqv = _mm256_set1_ps(uu_sq);
 
             /* directional velocity components */
             const __m256 _ku_x = _mm256_set_ps( 1, -1,-1, 1, 0,-1, 0, 1);
@@ -119,21 +119,10 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
 
             /* Althought _mm256_set1_ps (sequential) is slower than _mm256_broadcast_ss (parallel) 
             * Since the value can be determined at compile time, it is not necessary to use broadcast. */
-            #ifndef BROADCAST
-              const __m256 inv_c_sqv = _mm256_set1_ps(inv_c_sq);
-              const __m256 inv_2c_sq2v = _mm256_set1_ps(inv_2c_sq2);
-              const __m256 onev = _mm256_set1_ps(1);
-              const __m256 w12v = _mm256_set_ps(w2, w2, w2, w2, w1, w1, w1, w1);
-            #else
-              const float one = 1.f;
-              const __m256 inv_c_sqv = _mm256_broadcast_ss(&inv_c_sq);
-              const __m256 inv_2c_sq2v = _mm256_broadcast_ss(&inv_2c_sq2);
-              const __m256 onev = _mm256_broadcast_ss(&one);
-              const __m128 w1v = _mm_broadcast_ss(&w1);
-              const __m128 w2v = _mm_broadcast_ss(&w2);
-              const __m256 w12v = _mm256_insertf128_ps(_mm256_castps128_ps256(w1v), w2v, 1);
-            #endif
-
+            const __m256 inv_c_sqv = _mm256_set1_ps(inv_c_sq);
+            const __m256 inv_2c_sq2v = _mm256_set1_ps(inv_2c_sq2);
+            const __m256 onev = _mm256_set1_ps(1);
+            const __m256 w12v = _mm256_set_ps(w2, w2, w2, w2, w1, w1, w1, w1);
             /* equilibrium densities */
             tmp_cells[idx].speeds[0] = cells[idx].speeds[0]
                                                     + params.omega
@@ -145,9 +134,10 @@ int collision_and_obstacle(const t_param params, const t_speed* restrict cells, 
             const __m256 d_equv = _mm256_mul_ps(_3, _mm256_add_ps(_1, _2));
             
             /* relaxation step */
-            const __m256 omegav = _mm256_broadcast_ss(&params.omega);
+            const __m256 omegav = _mm256_set1_ps(params.omega);
+            const __m256 _omegav = _mm256_set1_ps(1 - params.omega);
             const __m256 cellsv = _mm256_loadu_ps(cells[idx].speeds+1);
-            const __m256 tmp_cellsv = _mm256_fmadd_ps(omegav, _mm256_sub_ps(d_equv, cellsv), cellsv);
+            const __m256 tmp_cellsv = _mm256_fmadd_ps(cellsv, _omegav, _mm256_mul_ps(omegav, d_equv));
             _mm256_storeu_ps(tmp_cells[idx].speeds+1, tmp_cellsv);
             
           }
