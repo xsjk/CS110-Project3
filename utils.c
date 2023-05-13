@@ -1,4 +1,5 @@
 #include "types.h"
+#include "string.h"
 
 /* utility functions */
 void die(const char* message, const int line, const char* file)
@@ -72,16 +73,47 @@ int initialise(const char* paramfile, const char* obstaclefile,
   /* Allocate memory. */
 
   /* main grid */
-  for (int i=0; i<NSPEEDS; i++) {
-    cells_ptr->speeds[i] = malloc(sizeof(float) * (params->ny * params->nx));
-    if (cells_ptr->speeds[i] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  }
+  // maxIters
+  cells_ptr->speeds[0] = malloc(sizeof(float) * (params->ny * params->nx));
+  if (cells_ptr->speeds[0] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[1] = malloc(sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+  if (cells_ptr->speeds[1] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[2] = malloc(sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+  if (cells_ptr->speeds[2] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[3] = malloc(sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+  if (cells_ptr->speeds[3] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[4] = malloc(sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+  if (cells_ptr->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[5] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (cells_ptr->speeds[5] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[6] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (cells_ptr->speeds[6] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[7] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (cells_ptr->speeds[7] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+  cells_ptr->speeds[8] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (cells_ptr->speeds[8] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
+
 
   /* 'helper' grid, used as scratch space */
-  for (int i=0; i<NSPEEDS; i++) {
-    tmp_cells_ptr->speeds[i] = malloc(sizeof(float) * (params->ny * params->nx));
-    if (tmp_cells_ptr->speeds[i] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  }
+  tmp_cells_ptr->speeds[0] = malloc(sizeof(float) * (params->ny * params->nx));
+  if (tmp_cells_ptr->speeds[0] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[1] = malloc(sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+  if (tmp_cells_ptr->speeds[1] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[2] = malloc(sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+  if (tmp_cells_ptr->speeds[2] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[3] = malloc(sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+  if (tmp_cells_ptr->speeds[3] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[4] = malloc(sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+  if (tmp_cells_ptr->speeds[4] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[5] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (tmp_cells_ptr->speeds[5] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[6] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (tmp_cells_ptr->speeds[6] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[7] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (tmp_cells_ptr->speeds[7] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  tmp_cells_ptr->speeds[8] = malloc(sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  if (tmp_cells_ptr->speeds[8] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
+  
 
   /* the map of obstacles */
   *obstacles_ptr = malloc(sizeof(int) * (params->ny * params->nx));
@@ -99,7 +131,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
       /* centre */
       cells_ptr->speeds[0][ii + jj*params->nx] = w0;
       /* axis directions */
-      cells_ptr->speeds[1][ii + jj*params->nx] = w1;
+      cells_ptr->speeds[1][(params->nx - ii) * params->ny + jj] = w1;
       cells_ptr->speeds[2][ii + jj*params->nx] = w1;
       cells_ptr->speeds[3][ii + jj*params->nx] = w1;
       cells_ptr->speeds[4][ii + jj*params->nx] = w1;
@@ -110,6 +142,52 @@ int initialise(const char* paramfile, const char* obstaclefile,
       cells_ptr->speeds[8][ii + jj*params->nx] = w2;
     }
   }
+  
+  // // for (int jj = 0; jj < params->ny; jj++)
+  // //   for (int ii = 0; ii < params->nx; ii++)
+  // //       cells_ptr->speeds[0][ii + jj*params->nx] = w0;
+  // memset(cells_ptr->speeds[0], w0, sizeof(float) * (params->ny * params->nx));
+  
+  // // for (int jj = 0; jj < params->ny; jj++)
+  // //   for (int ii = 0; ii < (params->nx + params->maxIters); ii++)
+  // //       cells_ptr->speeds[1][(params->nx - ii - 1) * params->ny + jj] = w1;
+  // memset(cells_ptr->speeds[1], w1, sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+    
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx; ii++)
+  // //       cells_ptr->speeds[2][ii + jj*params->nx] = w1;
+  // memset(cells_ptr->speeds[2], w1, sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+
+  // // for (int jj = 0; jj < params->ny; jj++)
+  // //   for (int ii = 0; ii < params->nx + params->maxIters; ii++)
+  // //       cells_ptr->speeds[3][ii + jj*params->nx] = w1;
+  // memset(cells_ptr->speeds[3], w1, sizeof(float) * (params->ny * (params->nx + params->maxIters)));
+  
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx; ii++)
+  // //       cells_ptr->speeds[4][ii + jj*params->nx] = w1;
+  // memset(cells_ptr->speeds[4], w1, sizeof(float) * ((params->ny + params->maxIters) * params->nx));
+  
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx + 2 * params->ny; ii++)
+  // //       cells_ptr->speeds[5][ii + jj*params->nx] = w2;
+  // memset(cells_ptr->speeds[5], w2, sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx + 2 * params->ny; ii++)
+  // //       cells_ptr->speeds[6][ii + jj*params->nx] = w2;
+  // memset(cells_ptr->speeds[6], w2, sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx + 2 * params->ny; ii++)
+  // //       cells_ptr->speeds[7][ii + jj*params->nx] = w2;
+  // memset(cells_ptr->speeds[7], w2, sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+  
+  // // for (int jj = 0; jj < params->ny + params->maxIters; jj++)
+  // //   for (int ii = 0; ii < params->nx + 2 * params->ny; ii++)
+  // //       cells_ptr->speeds[8][ii + jj*params->nx] = w2;
+  // memset(cells_ptr->speeds[8], w2, sizeof(float) * ((params->ny + params->maxIters) * (params->nx + 2 * params->ny)));
+
 
   /* first set all cells in obstacle array to zero */
   for (int jj = 0; jj < params->ny; jj++)
@@ -158,17 +236,32 @@ int initialise(const char* paramfile, const char* obstaclefile,
 }
 
 /* finalise, including freeing up allocated memory */
-int finalise(const t_param* params, t_speed* cells_ptr, t_speed* tmp_cells_ptr,
+int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
              int** obstacles_ptr, float** inlets)
 {
   /*
   ** free up allocated memory
   */
-  for(int i=0; i<NSPEEDS; i++)
-    free(cells_ptr->speeds[i]);
-
-  for(int i=0; i<NSPEEDS; i++)
-    free(tmp_cells_ptr->speeds[i]);
+  free(cells->speeds[0]);
+  // free(cells->speeds[1] - params->ny * params->maxIters);
+  free(cells->speeds[1]);
+  free(cells->speeds[2]);
+  free(cells->speeds[3]);
+  free(cells->speeds[4]);
+  free(cells->speeds[5]);
+  free(cells->speeds[6]);
+  free(cells->speeds[7]);
+  free(cells->speeds[8]);
+  
+  free(tmp_cells->speeds[0]);
+  free(tmp_cells->speeds[1]);
+  free(tmp_cells->speeds[2]);
+  free(tmp_cells->speeds[3]);
+  free(tmp_cells->speeds[4]);
+  free(tmp_cells->speeds[5]);
+  free(tmp_cells->speeds[6]);
+  free(tmp_cells->speeds[7]);
+  free(tmp_cells->speeds[8]);
 
   free(*obstacles_ptr);
   *obstacles_ptr = NULL;
@@ -210,13 +303,18 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
       { /* no obstacle */
         local_density = 0.f;
 
-        for (int kk = 0; kk < NSPEEDS; kk++)
-        {
-          local_density += cells->speeds[kk][ii + jj*params.nx];
-        }
+        local_density += cells->speeds[0][ii + jj*params.nx];
+        local_density += cells->speeds[1][(params.nx - ii) * params.ny + jj];
+        local_density += cells->speeds[2][ii + jj*params.nx];
+        local_density += cells->speeds[3][ii + jj*params.nx];
+        local_density += cells->speeds[4][ii + jj*params.nx];
+        local_density += cells->speeds[5][ii + jj*params.nx];
+        local_density += cells->speeds[6][ii + jj*params.nx];
+        local_density += cells->speeds[7][ii + jj*params.nx];
+        local_density += cells->speeds[8][ii + jj*params.nx];
         
         /* compute x velocity component */
-        u_x = (cells->speeds[1][ii + jj*params.nx]
+        u_x = (cells->speeds[1][(params.nx - ii) * params.ny + jj]
                + cells->speeds[5][ii + jj*params.nx]
                + cells->speeds[8][ii + jj*params.nx]
                - (cells->speeds[3][ii + jj*params.nx]

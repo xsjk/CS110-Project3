@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
   /* timestep loop */
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    timestep(params, &cells, &tmp_cells, inlets, obstacles);
+    timestep(params, &cells, &tmp_cells, inlets, obstacles, tt);
 
   /* Visualization */
 #ifdef VISUAL

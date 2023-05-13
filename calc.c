@@ -31,13 +31,19 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
         /* local density total */
         float local_density = 0.f;
 
-        for (int kk = 0; kk < NSPEEDS; kk++)
-        {
-          local_density += cells->speeds[kk][ii + jj*params.nx];
-        }
+        local_density += cells->speeds[0][ii + jj*params.nx];
+        local_density += cells->speeds[1][(params.nx - ii) * params.ny + jj];
+        local_density += cells->speeds[2][ii + jj*params.nx];
+        local_density += cells->speeds[3][ii + jj*params.nx];
+        local_density += cells->speeds[4][ii + jj*params.nx];
+        local_density += cells->speeds[5][ii + jj*params.nx];
+        local_density += cells->speeds[6][ii + jj*params.nx];
+        local_density += cells->speeds[7][ii + jj*params.nx];
+        local_density += cells->speeds[8][ii + jj*params.nx];
+        
 
         /* x-component of velocity */
-        float u_x = (cells->speeds[1][ii + jj*params.nx]
+        float u_x = (cells->speeds[1][(params.nx - ii) * params.ny + jj]
                       + cells->speeds[5][ii + jj*params.nx]
                       + cells->speeds[8][ii + jj*params.nx]
                       - (cells->speeds[3][ii + jj*params.nx]
