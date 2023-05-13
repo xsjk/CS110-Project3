@@ -47,5 +47,5 @@
 **
 */
 
-int timestep(const t_param params, t_speed* cells, float* inlets, int* obstacles, int n_iter);
+int timestep(const t_param params, t_speed* cells, float* inlets, float* obstacles, int n_iter);
 #endif

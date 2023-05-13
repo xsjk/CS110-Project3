@@ -9,13 +9,13 @@ void die(const char* message, const int line, const char* file);
 /* Load parameters, allocate memory, initialize grids and obstacle. */
 int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params, t_speed* cells_ptr,
-               int** obstacles_ptr, float** inlets_ptr);
+               float** obstacles_ptr, float** inlets_ptr);
 
 /* Finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed* cells_ptr,
-             int** obstacles_ptr, float** inlets);
+             float** obstacles_ptr, float** inlets);
 
 /* Output current grid state -- each cells' velocity. */
-int write_state(char* filename, const t_param params, t_speed* cells, int* obstacles);
+int write_state(char* filename, const t_param params, t_speed* cells, float* obstacles);
 
 #endif

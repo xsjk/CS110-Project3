@@ -16,7 +16,7 @@ void die(const char* message, const int line, const char* file)
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params_ptr, t_speed* cells,
-               int** obstacles_ptr, float** inlets_ptr)
+               float** obstacles_ptr, float** inlets_ptr)
 {
   char   message[1024];  /* message buffer */
   FILE*   fp;            /* file pointer */
@@ -100,7 +100,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
 
   /* the map of obstacles */
-  *obstacles_ptr = _mm_malloc(sizeof(int) * (params.ny * params.nx), ALIGNED);
+  *obstacles_ptr = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (*obstacles_ptr == NULL) die("cannot allocate column memory for obstacles", __LINE__, __FILE__);
 
   /* initialise densities */
@@ -170,7 +170,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
     if (blocked != 1) die("obstacle blocked value should be 1", __LINE__, __FILE__);
 
     /* assign to array */
-    (*obstacles_ptr)[xx + yy*params.nx] = blocked;
+    (*obstacles_ptr)[xx + yy*params.nx] = -blocked;
   }
 
   /* and close the file */
@@ -184,7 +184,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
 /* finalise, including _mm_freeing up allocated memory */
 int finalise(const t_param* params, t_speed* cells,
-             int** obstacles_ptr, float** inlets)
+             float** obstacles_ptr, float** inlets)
 {
   /*
   ** _mm_free up allocated memory
@@ -211,7 +211,7 @@ int finalise(const t_param* params, t_speed* cells,
 
 
 /* write state of current grid */
-int write_state(char* filename, const t_param params, t_speed* cells, int* obstacles)
+int write_state(char* filename, const t_param params, t_speed* cells, float* obstacles)
 {
   FILE* fp;                    /* file pointer */
   float local_density;         /* per grid cell sum of densities */
