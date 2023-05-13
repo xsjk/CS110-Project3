@@ -12,7 +12,7 @@ int set_inlets(const t_param params, float* inlets) {
 }
 
 /* compute average velocity of whole grid, ignore grids with obstacles. */
-float av_velocity(const t_param params, t_speed* cells, int* obstacles)
+float av_velocity(const t_param params, t_speed* cells, float* obstacles)
 {
   int    tot_cells = 0;  /* no. of cells used in calculation */
   float  tot_u;          /* accumulated magnitudes of velocity for each cell */
@@ -64,7 +64,7 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 }
 
 /* calculate reynold number */
-float calc_reynolds(const t_param params, t_speed* cells, int* obstacles)
+float calc_reynolds(const t_param params, t_speed* cells, float* obstacles)
 {
   return av_velocity(params, cells, obstacles) * (float)(params.ny) / params.viscosity;
 }

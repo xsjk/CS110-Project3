@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
   t_param  params;              /* struct to hold parameter values */
   t_speed  cells;               /* grid containing fluid densities */
   t_speed  tmp_cells;           /* scratch space */
-  int*     obstacles = NULL;    /* grid indicating which cells are blocked */
+  float*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float*   inlets    = NULL;    /* inlet velocity */  
   struct timeval timstr;                   /* structure to hold elapsed time */
   double total_time, init_time, comp_time; /* floating point numbers to calculate elapsed wallclock time */

@@ -12,7 +12,7 @@ void die(const char* message, const int line, const char* file)
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params, t_speed* cells_ptr, t_speed* tmp_cells_ptr,
-               int** obstacles_ptr, float** inlets_ptr)
+               float** obstacles_ptr, float** inlets_ptr)
 {
   char   message[1024];  /* message buffer */
   FILE*   fp;            /* file pointer */
@@ -145,7 +145,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
     if (blocked != 1) die("obstacle blocked value should be 1", __LINE__, __FILE__);
 
     /* assign to array */
-    (*obstacles_ptr)[xx + yy*params->nx] = blocked;
+    (*obstacles_ptr)[xx + yy*params->nx] = -blocked; // turn 1 to -1 since -1 has a `1` on its sign bit
   }
 
   /* and close the file */
@@ -159,7 +159,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed* cells_ptr, t_speed* tmp_cells_ptr,
-             int** obstacles_ptr, float** inlets)
+             float** obstacles_ptr, float** inlets)
 {
   /*
   ** free up allocated memory
@@ -181,7 +181,7 @@ int finalise(const t_param* params, t_speed* cells_ptr, t_speed* tmp_cells_ptr,
 
 
 /* write state of current grid */
-int write_state(char* filename, const t_param params, t_speed* cells, int* obstacles)
+int write_state(char* filename, const t_param params, t_speed* cells, float* obstacles)
 {
   FILE* fp;                    /* file pointer */
   float local_density;         /* per grid cell sum of densities */
