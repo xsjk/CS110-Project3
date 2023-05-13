@@ -190,7 +190,7 @@ int finalise(const t_param* params, t_speed* cells,
   ** _mm_free up allocated memory
   */
   _mm_free(cells->speeds[0]);
-  _mm_free(cells->speeds[1] - params->ny * params->maxIters);
+  _mm_free(cells->speeds[1]);
   _mm_free(cells->speeds[2] - params->nx * params->maxIters);
   _mm_free(cells->speeds[3]);
   _mm_free(cells->speeds[4] - params->nx * params->maxIters);
@@ -241,7 +241,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         local_density = 0.f;
 
         local_density += cells->speeds[0][ii + jj*params.nx];
-        local_density += cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj];
+        local_density += cells->speeds[1][(params.nx - 1 - ii) + jj*params.nx];
         local_density += cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx];
         local_density += cells->speeds[3][ii + jj*params.nx];
         local_density += cells->speeds[4][ii + jj*params.nx];
@@ -251,7 +251,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         local_density += cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)];
         
         /* compute x velocity component */
-        u_x = (cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj]
+        u_x = (cells->speeds[1][(params.nx - 1 - ii) + jj*params.nx]
                + cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
                + cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]
                - (cells->speeds[3][ii + jj*params.nx]
