@@ -235,8 +235,8 @@ int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
   ** free up allocated memory
   */
   free(cells->speeds[0]);
-  // free(cells->speeds[1] - params->ny * params->maxIters);
-  free(cells->speeds[1]);
+  free(cells->speeds[1] - params->ny * params->maxIters);
+  // free(cells->speeds[1]);
   free(cells->speeds[2]);
   free(cells->speeds[3]);
   free(cells->speeds[4]);
