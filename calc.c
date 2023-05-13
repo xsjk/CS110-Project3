@@ -33,24 +33,24 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 
         for (int kk = 0; kk < NSPEEDS; kk++)
         {
-          local_density += cells[ii + jj*params.nx].speeds[kk];
+          local_density += cells->speeds[kk][ii + jj*params.nx];
         }
 
         /* x-component of velocity */
-        float u_x = (cells[ii + jj*params.nx].speeds[1]
-                      + cells[ii + jj*params.nx].speeds[5]
-                      + cells[ii + jj*params.nx].speeds[8]
-                      - (cells[ii + jj*params.nx].speeds[3]
-                         + cells[ii + jj*params.nx].speeds[6]
-                         + cells[ii + jj*params.nx].speeds[7]))
+        float u_x = (cells->speeds[1][ii + jj*params.nx]
+                      + cells->speeds[5][ii + jj*params.nx]
+                      + cells->speeds[8][ii + jj*params.nx]
+                      - (cells->speeds[3][ii + jj*params.nx]
+                         + cells->speeds[6][ii + jj*params.nx]
+                         + cells->speeds[7][ii + jj*params.nx]))
                      / local_density;
         /* compute y velocity component */
-        float u_y = (cells[ii + jj*params.nx].speeds[2]
-                      + cells[ii + jj*params.nx].speeds[5]
-                      + cells[ii + jj*params.nx].speeds[6]
-                      - (cells[ii + jj*params.nx].speeds[4]
-                         + cells[ii + jj*params.nx].speeds[7]
-                         + cells[ii + jj*params.nx].speeds[8]))
+        float u_y = (cells->speeds[2][ii + jj*params.nx]
+                      + cells->speeds[5][ii + jj*params.nx]
+                      + cells->speeds[6][ii + jj*params.nx]
+                      - (cells->speeds[4][ii + jj*params.nx]
+                         + cells->speeds[7][ii + jj*params.nx]
+                         + cells->speeds[8][ii + jj*params.nx]))
                      / local_density;
         /* accumulate the norm of x- and y- velocity components */
         tot_u += sqrtf((u_x * u_x) + (u_y * u_y));

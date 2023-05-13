@@ -26,7 +26,7 @@ typedef struct
 /* struct to hold the distribution of different speeds */
 typedef struct
 {
-  float speeds[NSPEEDS];
+  float *speeds[NSPEEDS];
 } t_speed;
 
 #endif
