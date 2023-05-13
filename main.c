@@ -27,7 +27,6 @@ int main(int argc, char* argv[])
   char*    out_dir = NULL;      /* name of output directory */
   t_param  params;              /* struct to hold parameter values */
   t_speed  cells;               /* grid containing fluid densities */
-  t_speed  tmp_cells;           /* scratch space */
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float*   inlets    = NULL;    /* inlet velocity */  
   struct timeval timstr;                   /* structure to hold elapsed time */
@@ -60,7 +59,7 @@ int main(int argc, char* argv[])
   total_time = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   init_time = total_time;
   /* initialise our data structures and load values from file */
-  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &inlets);
+  initialise(paramfile, obstaclefile, &params, &cells, &obstacles, &inlets);
   /* Set the inlet speed */
   set_inlets(params, inlets);
   /* Init time stops here */
@@ -84,7 +83,7 @@ int main(int argc, char* argv[])
   /* timestep loop */
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    timestep(params, &cells, &tmp_cells, inlets, obstacles, tt);
+    timestep(params, &cells, inlets, obstacles, tt);
 
   /* Visualization */
 #ifdef VISUAL
@@ -111,7 +110,7 @@ int main(int argc, char* argv[])
   printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_time);
 
   /* finalise */
-  finalise(&params, &cells, &tmp_cells, &obstacles, &inlets);
+  finalise(&params, &cells, &obstacles, &inlets);
 
   /* total time stop */
   gettimeofday(&timstr, NULL);

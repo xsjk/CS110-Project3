@@ -3,21 +3,21 @@
 #define swap(a, b) {float tmp = a; a = b; b = tmp;}
 
 /* The main processes in one step */
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, int n_iter);
-int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells, int n_iter);
-int boundary(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets, int n_iter);
+int collision(const t_param params, t_speed* cells, int* obstacles, int n_iter);
+int streaming(const t_param params, t_speed* cells, int n_iter);
+int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter);
 
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
 ** collision(), obstacle(), streaming() & boundary()
 */
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets, int* obstacles, int n_iter)
+int timestep(const t_param params, t_speed* cells, float* inlets, int* obstacles, int n_iter)
 {
   /* The main time overhead, you should mainly optimize these processes. */
-  collision(params, cells, tmp_cells, obstacles, n_iter);
-  streaming(params, cells, tmp_cells, n_iter);
-  boundary(params, cells, tmp_cells, inlets, n_iter);
+  collision(params, cells, obstacles, n_iter);
+  streaming(params, cells, n_iter);
+  boundary(params, cells, inlets, n_iter);
   return EXIT_SUCCESS;
 }
 
@@ -25,7 +25,7 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, float* in
 ** The collision of fluids in the cell is calculated using 
 ** the local equilibrium distribution and relaxation process
 */
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, int n_iter) {
+int collision(const t_param params, t_speed* cells, int* obstacles, int n_iter) {
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
   const float w0 = 4.f / 9.f;   /* weighting factor */
   const float w1 = 1.f / 9.f;   /* weighting factor */
@@ -133,10 +133,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
       } else {
         /* called after collision, so taking values from scratch space
         ** mirroring, and writing into main grid */
-        cells->speeds[0][ii + jj*params.nx] = cells->speeds[0][ii + jj*params.nx];
-        cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)] = cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)];
-        cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)] = cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)];
-        
+        swap(cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)], cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]);
         swap(cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)], cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)]);
         swap(cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx], cells->speeds[4][ii + jj*params.nx]);
         swap(cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj], cells->speeds[3][ii*params.ny + jj]);
@@ -149,7 +146,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 /*
 ** Particles flow to the corresponding cell according to their speed direaction.
 */
-int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells, int n_iter) {
+int streaming(const t_param params, t_speed* cells, int n_iter) {
 
   cells->speeds[1] += params.ny;
   cells->speeds[2] += params.nx;
@@ -168,7 +165,7 @@ int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells, int n_it
 ** the left border is the inlet of fixed speed, and 
 ** the right border is the open outlet of the first-order approximation.
 */
-int boundary(const t_param params, t_speed* cells,  t_speed* tmp_cells, float* inlets, int n_iter) {
+int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
   /* Set the constant coefficient */
   const float cst1 = 2.0/3.0;
   const float cst2 = 1.0/6.0;

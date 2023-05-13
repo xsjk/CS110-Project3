@@ -12,7 +12,7 @@ void die(const char* message, const int line, const char* file)
 
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
-               t_param* params_ptr, t_speed* cells, t_speed* tmp_cells,
+               t_param* params_ptr, t_speed* cells,
                int** obstacles_ptr, float** inlets_ptr)
 {
   char   message[1024];  /* message buffer */
@@ -95,27 +95,6 @@ int initialise(const char* paramfile, const char* obstaclefile,
   cells->speeds[8] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
   if (cells->speeds[8] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
-
-  /* 'helper' grid, used as scratch space */
-  tmp_cells->speeds[0] = malloc(sizeof(float) * (params.ny * params.nx));
-  if (tmp_cells->speeds[0] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[1] = malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)));
-  if (tmp_cells->speeds[1] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[2] = malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx));
-  if (tmp_cells->speeds[2] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[3] = malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)));
-  if (tmp_cells->speeds[3] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[4] = malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx));
-  if (tmp_cells->speeds[4] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[5] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
-  if (tmp_cells->speeds[5] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[6] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
-  if (tmp_cells->speeds[6] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[7] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
-  if (tmp_cells->speeds[7] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  tmp_cells->speeds[8] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
-  if (tmp_cells->speeds[8] == NULL) die("cannot allocate memory for tmp_cells", __LINE__, __FILE__);
-  
 
   /* the map of obstacles */
   *obstacles_ptr = malloc(sizeof(int) * (params.ny * params.nx));
@@ -228,7 +207,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 }
 
 /* finalise, including freeing up allocated memory */
-int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
+int finalise(const t_param* params, t_speed* cells,
              int** obstacles_ptr, float** inlets)
 {
   /*
@@ -244,15 +223,6 @@ int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
   free(cells->speeds[7] - (params->nx + params->ny) * params->maxIters);
   free(cells->speeds[8] - (params->nx + params->ny) * params->maxIters);
   
-  free(tmp_cells->speeds[0]);
-  free(tmp_cells->speeds[1]);
-  free(tmp_cells->speeds[2]);
-  free(tmp_cells->speeds[3]);
-  free(tmp_cells->speeds[4]);
-  free(tmp_cells->speeds[5]);
-  free(tmp_cells->speeds[6]);
-  free(tmp_cells->speeds[7]);
-  free(tmp_cells->speeds[8]);
 
   free(*obstacles_ptr);
   *obstacles_ptr = NULL;
