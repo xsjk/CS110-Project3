@@ -27,16 +27,11 @@ int timestep(const t_param params, t_speed* cells, float* inlets, float* obstacl
 ** the local equilibrium distribution and relaxation process
 */
 int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter) {
-  const __m256 c_sq = _mm256_set1_ps(1.f / 3.f); /* square of speed of sound */
-  const __m256 w0 = _mm256_set1_ps(4.f / 9.f);   /* weighting factor */
-  const __m256 w1 = _mm256_set1_ps(1.f / 9.f);   /* weighting factor */
-  const __m256 w2 = _mm256_set1_ps(1.f / 36.f);  /* weighting factor */
-
   /* loop over the cells in the grid
   ** the collision step is called before
   ** the streaming step and so values of interest
   ** are in the scratch-space grid */
-  // #pragma omp parallel for
+  #pragma omp parallel for
   for (int jj = 0; jj < params.ny; jj++)
   {
     for (int ii = 0; ii < params.nx; ii+=8)
@@ -65,92 +60,44 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
         _mm256_loadu_ps(speeds[8])
       };
       
-      const __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj*params.nx]); // load our mask
-      __m256 temp1[NSPEEDS], temp2[NSPEEDS];
         /* compute local density total */
         __m256 local_density = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8];
-        __m256 u_x = ((s[1] + s[5] + s[8]) - (s[3] + s[6] + s[7])) / local_density;
-        __m256 u_y = ((s[2] + s[5] + s[6]) - (s[4] + s[7] + s[8])) / local_density;
+        __m256 _local_density = 3 / local_density;
+        __m256 u[NSPEEDS];
+        u[1] = ((s[1] + s[5] + s[8]) - (s[3] + s[6] + s[7])) * _local_density;
+        u[2] = ((s[2] + s[5] + s[6]) - (s[4] + s[7] + s[8])) * _local_density;
+        u[3] = -u[1];
+        u[4] = -u[2];
+        u[5] = u[1] + u[2];
+        u[6] = u[2] - u[1];
+        u[7] = -u[5];
+        u[8] = -u[6];
 
-        /* velocity squared */
-        __m256 u_sq = u_x * u_x + u_y * u_y;
-
-        /* directional velocity components */
-        __m256 u[NSPEEDS] = {
-          _mm256_setzero_ps(),
-          u_x,
-          u_y,
-          -u_x,
-          -u_y,
-          u_x + u_y,
-          -u_x + u_y,
-          -u_x - u_y,
-          u_x - u_y
+        __m256 half = _mm256_set1_ps(.5);
+        __m256 usq[4] = {
+          u[1] * u[1] * half,
+          u[2] * u[2] * half,
+          u[5] * u[5] * half,
+          u[6] * u[6] * half,
         };
+        __m256 _sq = _mm256_fmadd_ps(usq[0] + usq[1], _mm256_set1_ps(-1.f/3.f), _mm256_set1_ps(1.f));
+        __m256 omega = _mm256_set1_ps(params.omega);
+        
+        __m256 w0 = 4.f / 9.f * local_density;
+        __m256 w1 = 1.f / 9.f * local_density;
+        __m256 w2 = 1.f / 36.f * local_density;
 
-        /* equilibrium densities */
-        __m256 d_equ[NSPEEDS];
-        /* zero velocity density: weight w0 */
-
-        d_equ[0] = w0 * local_density * (1.f + u[0] / c_sq
-                                         + (u[0] * u[0]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        /* axis speeds: weight w1 */
-        d_equ[1] = w1 * local_density * (1.f + u[1] / c_sq
-                                         + (u[1] * u[1]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[2] = w1 * local_density * (1.f + u[2] / c_sq
-                                         + (u[2] * u[2]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[3] = w1 * local_density * (1.f + u[3] / c_sq
-                                         + (u[3] * u[3]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[4] = w1 * local_density * (1.f + u[4] / c_sq
-                                         + (u[4] * u[4]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        /* diagonal speeds: weight w2 */
-        d_equ[5] = w2 * local_density * (1.f + u[5] / c_sq
-                                         + (u[5] * u[5]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[6] = w2 * local_density * (1.f + u[6] / c_sq
-                                         + (u[6] * u[6]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[7] = w2 * local_density * (1.f + u[7] / c_sq
-                                         + (u[7] * u[7]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
-        d_equ[8] = w2 * local_density * (1.f + u[8] / c_sq
-                                         + (u[8] * u[8]) / (2.f * c_sq * c_sq)
-                                         - u_sq / (2.f * c_sq));
         /* relaxation step */
-        temp1[0] = s[0] + params.omega * (d_equ[0] - s[0]);
-        temp1[1] = s[1] + params.omega * (d_equ[1] - s[1]);
-        temp1[2] = s[2] + params.omega * (d_equ[2] - s[2]);
-        temp1[3] = s[3] + params.omega * (d_equ[3] - s[3]);
-        temp1[4] = s[4] + params.omega * (d_equ[4] - s[4]);
-        temp1[5] = s[5] + params.omega * (d_equ[5] - s[5]);
-        temp1[6] = s[6] + params.omega * (d_equ[6] - s[6]);
-        temp1[7] = s[7] + params.omega * (d_equ[7] - s[7]);
-        temp1[8] = s[8] + params.omega * (d_equ[8] - s[8]);
-
-        temp2[0] = _mm256_loadu_ps(speeds[0]);
-        temp2[1] = _mm256_loadu_ps(speeds[3]);
-        temp2[2] = _mm256_loadu_ps(speeds[4]);
-        temp2[3] = _mm256_loadu_ps(speeds[1]);
-        temp2[4] = _mm256_loadu_ps(speeds[2]);
-        temp2[5] = _mm256_loadu_ps(speeds[7]);
-        temp2[6] = _mm256_loadu_ps(speeds[8]);
-        temp2[7] = _mm256_loadu_ps(speeds[5]);
-        temp2[8] = _mm256_loadu_ps(speeds[6]);
-      
-        _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(temp1[0], temp2[0], mask));
-        _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(temp1[1], temp2[1], mask));
-        _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(temp1[2], temp2[2], mask));
-        _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(temp1[3], temp2[3], mask));
-        _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(temp1[4], temp2[4], mask));
-        _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(temp1[5], temp2[5], mask));
-        _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(temp1[6], temp2[6], mask));
-        _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(temp1[7], temp2[7], mask));
-        _mm256_storeu_ps(speeds[8], _mm256_blendv_ps(temp1[8], temp2[8], mask));
+        __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj*params.nx]); // load our mask
+        _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
+        _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
+        _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
+        _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
+        _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
+        _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[5] + usq[2]), s[5]), s[5]), s[7], mask));
+        _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
+        _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
+        _mm256_storeu_ps(speeds[8], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[8] + usq[3]), s[8]), s[8]), s[6], mask));
       
     }
   }
@@ -193,17 +140,14 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
   int ii, jj; 
   float local_density;
   
-  // top wall (bounce)
-  jj = params.ny -1;
   for(ii = 0; ii < params.nx; ii++){
+    // top wall (bounce)
+    jj = params.ny -1;
     cells->speeds[4][ii + jj*params.nx] = cells->speeds[2][ii + (params.ny - 1 - jj - 1)*params.nx];
     cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)] = cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj - 1)*(params.nx + params.ny)];
     cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)] = cells->speeds[6][(ii + jj) + (params.ny - 1 - jj - 1)*(params.nx + params.ny)];
-  }
-
-  // bottom wall (bounce)
-  jj = 0;
-  for(ii = 0; ii < params.nx; ii++){
+    // bottom wall (bounce)
+    jj = 0;
     cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx] = cells->speeds[4][ii + (jj - 1)*params.nx];
     cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)] = cells->speeds[7][(params.ny + ii - jj) + (jj - 1)*(params.nx + params.ny)];
     cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)] = cells->speeds[8][(ii + jj) + (jj - 1)*(params.nx + params.ny)];
