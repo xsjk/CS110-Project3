@@ -36,10 +36,10 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
   ** the collision step is called before
   ** the streaming step and so values of interest
   ** are in the scratch-space grid */
-  
-  for (int ii = 0; ii < params.nx; ii++)
+  #pragma omp parallel for
+  for (int jj = 0; jj < params.ny; jj++)
   {
-    for (int jj = 0; jj < params.ny; jj++)
+    for (int ii = 0; ii < params.nx; ii++)
     {
       if (!obstacles[ii + jj*params.nx]){
         /* compute local density total */
@@ -134,9 +134,10 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles) {
 
   /* loop over the cells in the grid */
-  for (int ii = 0; ii < params.nx; ii++)
+  #pragma omp parallel for
+  for (int jj = 0; jj < params.ny; jj++)
   {
-    for (int jj = 0; jj < params.ny; jj++)
+    for (int ii = 0; ii < params.nx; ii++)
     {
       /* if the cell contains an obstacle */
       if (obstacles[jj*params.nx + ii])
@@ -163,9 +164,10 @@ int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obst
 */
 int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells) {
   /* loop over _all_ cells */
-  for (int ii = 0; ii < params.nx; ii++)
+  #pragma omp parallel for
+  for (int jj = 0; jj < params.ny; jj++)
   {
-    for (int jj = 0; jj < params.ny; jj++)
+    for (int ii = 0; ii < params.nx; ii++)
     {
       /* determine indices of axis-direction neighbours
       ** respecting periodic boundary conditions (wrap around) */
