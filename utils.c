@@ -148,17 +148,17 @@ int initialise(const char* paramfile, const char* obstaclefile,
     for (int ii = 0; ii < params.nx; ii++)
         cells->speeds[0][ii + jj*params.nx] = w0;
   
-  for (int jj = 0; jj < params.ny; jj++)
-    for (int ii = 0; ii < params.nx + params.maxIters; ii++)
+  for (int ii = 0; ii < params.nx + params.maxIters; ii++)
+    for (int jj = 0; jj < params.ny; jj++)
         cells->speeds[1][ii * params.ny + jj] = w1;
     
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx; ii++)
         cells->speeds[2][ii + jj*params.nx] = w1;
 
-  for (int jj = 0; jj < params.ny; jj++)
-    for (int ii = 0; ii < params.nx + params.maxIters; ii++)
-        cells->speeds[3][ii + jj*params.nx] = w1;
+  for (int ii = 0; ii < params.nx + params.maxIters; ii++)
+    for (int jj = 0; jj < params.ny; jj++)
+        cells->speeds[3][ii*params.ny + jj] = w1;
   
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx; ii++)
@@ -166,19 +166,19 @@ int initialise(const char* paramfile, const char* obstaclefile,
   
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[5][ii + jj*params.nx] = w2;
+        cells->speeds[5][ii + jj*(params.nx + 2 * params.ny)] = w2;
   
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[6][ii + jj*params.nx] = w2;
+        cells->speeds[6][ii + jj*(params.nx + 2 * params.ny)] = w2;
   
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[7][ii + jj*params.nx] = w2;
+        cells->speeds[7][ii + jj*(params.nx + 2 * params.ny)] = w2;
   
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[8][ii + jj*params.nx] = w2;
+        cells->speeds[8][ii + jj*(params.nx + 2 * params.ny)] = w2;
 
 
   /* first set all cells in obstacle array to zero */
@@ -238,7 +238,8 @@ int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
   free(cells->speeds[1] - params->ny * params->maxIters);
   // free(cells->speeds[1]);
   free(cells->speeds[2]);
-  free(cells->speeds[3]);
+  free(cells->speeds[3] - params->ny * params->maxIters);
+  // free(cells->speeds[3]);
   free(cells->speeds[4]);
   free(cells->speeds[5]);
   free(cells->speeds[6]);
@@ -298,7 +299,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         local_density += cells->speeds[0][ii + jj*params.nx];
         local_density += cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj];
         local_density += cells->speeds[2][ii + jj*params.nx];
-        local_density += cells->speeds[3][ii + jj*params.nx];
+        local_density += cells->speeds[3][ii*params.ny + jj];
         local_density += cells->speeds[4][ii + jj*params.nx];
         local_density += cells->speeds[5][ii + jj*params.nx];
         local_density += cells->speeds[6][ii + jj*params.nx];
@@ -309,7 +310,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         u_x = (cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj]
                + cells->speeds[5][ii + jj*params.nx]
                + cells->speeds[8][ii + jj*params.nx]
-               - (cells->speeds[3][ii + jj*params.nx]
+               - (cells->speeds[3][ii*params.ny + jj]
                   + cells->speeds[6][ii + jj*params.nx]
                   + cells->speeds[7][ii + jj*params.nx]))
               / local_density;
