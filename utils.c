@@ -86,13 +86,13 @@ int initialise(const char* paramfile, const char* obstaclefile,
   if (cells->speeds[3] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[4] = malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx));
   if (cells->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[5] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
+  cells->speeds[5] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
   if (cells->speeds[5] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[6] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
+  cells->speeds[6] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
   if (cells->speeds[6] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[7] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
+  cells->speeds[7] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
   if (cells->speeds[7] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[8] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + 2 * params.ny)));
+  cells->speeds[8] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
   if (cells->speeds[8] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
 
@@ -105,59 +105,32 @@ int initialise(const char* paramfile, const char* obstaclefile,
   float w1 = params_ptr->density      / 9.f;
   float w2 = params_ptr->density      / 36.f;
 
-  // for (int jj = 0; jj < params->ny; jj++)
-  // {
-  //   for (int ii = 0; ii < params->nx; ii++)
-  //   {
-  //     /* centre */
-  //     cells_ptr->speeds[0][ii + jj*params->nx] = w0;
-  //     /* axis directions */
-  //     cells_ptr->speeds[1][(params->nx - ii) * params->ny + jj] = w1;
-  //     cells_ptr->speeds[2][ii + jj*params->nx] = w1;
-  //     cells_ptr->speeds[3][ii + jj*params->nx] = w1;
-  //     cells_ptr->speeds[4][ii + jj*params->nx] = w1;
-  //     /* diagonals */
-  //     cells_ptr->speeds[5][ii + jj*params->nx] = w2;
-  //     cells_ptr->speeds[6][ii + jj*params->nx] = w2;
-  //     cells_ptr->speeds[7][ii + jj*params->nx] = w2;
-  //     cells_ptr->speeds[8][ii + jj*params->nx] = w2;
-  //   }
-  // }
-  for (int jj = 0; jj < params.ny; jj++)
-    for (int ii = 0; ii < params.nx; ii++)
-        cells->speeds[0][ii + jj*params.nx] = w0;
-  
-  for (int ii = 0; ii < params.nx + params.maxIters; ii++)
-    for (int jj = 0; jj < params.ny; jj++)
-        cells->speeds[1][ii * params.ny + jj] = w1;
-    
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx; ii++)
-        cells->speeds[2][ii + jj*params.nx] = w1;
+  for (int i = 0; i < params.nx * params.ny; i++)
+    cells->speeds[0][i] = w0;
 
-  for (int ii = 0; ii < params.nx + params.maxIters; ii++)
-    for (int jj = 0; jj < params.ny; jj++)
-        cells->speeds[3][ii*params.ny + jj] = w1;
+  for (int i = 0; i < (params.nx + params.maxIters) * params.ny; i++)
+    cells->speeds[1][i] = w1;
   
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx; ii++)
-        cells->speeds[4][ii + jj*params.nx] = w1;
+  for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
+    cells->speeds[2][i] = w1;
+
+  for (int i = 0; i < (params.nx + params.maxIters) * params.ny; i++)
+    cells->speeds[3][i] = w1;
   
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[5][ii + jj*(params.nx + 2 * params.ny)] = w2;
+  for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
+    cells->speeds[4][i] = w1;
+    
+  for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++) 
+    cells->speeds[5][i] = w2;
+
+  for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++) 
+    cells->speeds[6][i] = w2;
   
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[6][ii + jj*(params.nx + 2 * params.ny)] = w2;
-  
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[7][ii + jj*(params.nx + 2 * params.ny)] = w2;
-  
-  for (int jj = 0; jj < params.ny + params.maxIters; jj++)
-    for (int ii = 0; ii < params.nx + 2 * params.ny; ii++)
-        cells->speeds[8][ii + jj*(params.nx + 2 * params.ny)] = w2;
+  for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++)
+    cells->speeds[7][i] = w2;
+
+  for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++)
+    cells->speeds[8][i] = w2;
 
 
   /* first set all cells in obstacle array to zero */
