@@ -150,7 +150,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   
   for (int jj = 0; jj < params.ny; jj++)
     for (int ii = 0; ii < params.nx + params.maxIters; ii++)
-        cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj] = w1;
+        cells->speeds[1][ii * params.ny + jj] = w1;
     
   for (int jj = 0; jj < params.ny + params.maxIters; jj++)
     for (int ii = 0; ii < params.nx; ii++)
