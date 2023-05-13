@@ -1,5 +1,8 @@
 #include "types.h"
 #include "string.h"
+#include "mm_malloc.h"
+
+#define ALIGNED 64
 
 /* utility functions */
 void die(const char* message, const int line, const char* file)
@@ -76,28 +79,28 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
   /* main grid */
   // maxIters
-  cells->speeds[0] = malloc(sizeof(float) * (params.ny * params.nx));
+  cells->speeds[0] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (cells->speeds[0] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[1] = malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)));
+  cells->speeds[1] = _mm_malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)), ALIGNED);
   if (cells->speeds[1] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[2] = malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx));
+  cells->speeds[2] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[2] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[3] = malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)));
+  cells->speeds[3] = _mm_malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)), ALIGNED);
   if (cells->speeds[3] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[4] = malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx));
+  cells->speeds[4] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[5] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
+  cells->speeds[5] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
   if (cells->speeds[5] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[6] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
+  cells->speeds[6] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
   if (cells->speeds[6] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[7] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
+  cells->speeds[7] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
   if (cells->speeds[7] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[8] = malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)));
+  cells->speeds[8] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
   if (cells->speeds[8] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
 
   /* the map of obstacles */
-  *obstacles_ptr = malloc(sizeof(int) * (params.ny * params.nx));
+  *obstacles_ptr = _mm_malloc(sizeof(int) * (params.ny * params.nx), ALIGNED);
   if (*obstacles_ptr == NULL) die("cannot allocate column memory for obstacles", __LINE__, __FILE__);
 
   /* initialise densities */
@@ -174,33 +177,33 @@ int initialise(const char* paramfile, const char* obstaclefile,
   fclose(fp);
 
   /* allocate space to hold the velocity of the cells at the inlet. */
-  *inlets_ptr = (float*)malloc(sizeof(float) * params.ny);
+  *inlets_ptr = (float*)_mm_malloc(sizeof(float) * params.ny, ALIGNED);
 
   return EXIT_SUCCESS;
 }
 
-/* finalise, including freeing up allocated memory */
+/* finalise, including _mm_freeing up allocated memory */
 int finalise(const t_param* params, t_speed* cells,
              int** obstacles_ptr, float** inlets)
 {
   /*
-  ** free up allocated memory
+  ** _mm_free up allocated memory
   */
-  free(cells->speeds[0]);
-  free(cells->speeds[1] - params->ny * params->maxIters);
-  free(cells->speeds[2] - params->nx * params->maxIters);
-  free(cells->speeds[3] - params->ny * params->maxIters);
-  free(cells->speeds[4] - params->nx * params->maxIters);
-  free(cells->speeds[5] - (params->nx + params->ny) * params->maxIters);
-  free(cells->speeds[6] - (params->nx + params->ny) * params->maxIters);
-  free(cells->speeds[7] - (params->nx + params->ny) * params->maxIters);
-  free(cells->speeds[8] - (params->nx + params->ny) * params->maxIters);
+  _mm_free(cells->speeds[0]);
+  _mm_free(cells->speeds[1] - params->ny * params->maxIters);
+  _mm_free(cells->speeds[2] - params->nx * params->maxIters);
+  _mm_free(cells->speeds[3] - params->ny * params->maxIters);
+  _mm_free(cells->speeds[4] - params->nx * params->maxIters);
+  _mm_free(cells->speeds[5] - (params->nx + params->ny) * params->maxIters);
+  _mm_free(cells->speeds[6] - (params->nx + params->ny) * params->maxIters);
+  _mm_free(cells->speeds[7] - (params->nx + params->ny) * params->maxIters);
+  _mm_free(cells->speeds[8] - (params->nx + params->ny) * params->maxIters);
   
 
-  free(*obstacles_ptr);
+  _mm_free(*obstacles_ptr);
   *obstacles_ptr = NULL;
 
-  free(*inlets);
+  _mm_free(*inlets);
   *inlets = NULL;
 
   return EXIT_SUCCESS;
