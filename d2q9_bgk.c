@@ -4,7 +4,6 @@
 /* The main processes in one step */
 int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
 int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells);
-int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
 int boundary(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets);
 
 /*
@@ -16,7 +15,6 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, float* in
 {
   /* The main time overhead, you should mainly optimize these processes. */
   collision(params, cells, tmp_cells, obstacles);
-  obstacle(params, cells, tmp_cells, obstacles);
   streaming(params, cells, tmp_cells);
   boundary(params, cells, tmp_cells, inlets);
   return EXIT_SUCCESS;
@@ -122,26 +120,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
                                                   + params.omega
                                                   * (d_equ[kk] - cells[ii + jj*params.nx].speeds[kk]);
         }
-      }
-    }
-  }
-  return EXIT_SUCCESS;
-}
-
-/*
-** For obstacles, mirror their speed.
-*/
-int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles) {
-
-  /* loop over the cells in the grid */
-  #pragma omp parallel for
-  for (int jj = 0; jj < params.ny; jj++)
-  {
-    for (int ii = 0; ii < params.nx; ii++)
-    {
-      /* if the cell contains an obstacle */
-      if (obstacles[jj*params.nx + ii])
-      {
+      } else {
         /* called after collision, so taking values from scratch space
         ** mirroring, and writing into main grid */
         tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0];
