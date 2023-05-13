@@ -302,12 +302,12 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         local_density += cells->speeds[5][ii + jj*params.nx];
         local_density += cells->speeds[6][ii + jj*params.nx];
         local_density += cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)];
-        local_density += cells->speeds[8][ii + jj*params.nx];
+        local_density += cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)];
         
         /* compute x velocity component */
         u_x = (cells->speeds[1][(params.nx - 1 - ii) * params.ny + jj]
                + cells->speeds[5][ii + jj*params.nx]
-               + cells->speeds[8][ii + jj*params.nx]
+               + cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]
                - (cells->speeds[3][ii*params.ny + jj]
                   + cells->speeds[6][ii + jj*params.nx]
                   + cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)]))
@@ -318,7 +318,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
                + cells->speeds[6][ii + jj*params.nx]
                - (cells->speeds[4][ii + jj*params.nx]
                   + cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)]
-                  + cells->speeds[8][ii + jj*params.nx]))
+                  + cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]))
               / local_density;
         /* compute norm of velocity */
         u = sqrtf((u_x * u_x) + (u_y * u_y));
