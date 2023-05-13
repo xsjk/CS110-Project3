@@ -240,7 +240,7 @@ int finalise(const t_param* params, t_speed* cells, t_speed* tmp_cells,
   free(cells->speeds[3] - params->ny * params->maxIters);
   free(cells->speeds[4] - params->nx * params->maxIters);
   free(cells->speeds[5] - (params->nx + params->ny) * params->maxIters);
-  free(cells->speeds[6]);
+  free(cells->speeds[6] - (params->nx + params->ny) * params->maxIters);
   free(cells->speeds[7] - (params->nx + params->ny) * params->maxIters);
   free(cells->speeds[8] - (params->nx + params->ny) * params->maxIters);
   
@@ -300,7 +300,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
         local_density += cells->speeds[3][ii*params.ny + jj];
         local_density += cells->speeds[4][ii + jj*params.nx];
         local_density += cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)];
-        local_density += cells->speeds[6][ii + jj*params.nx];
+        local_density += cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)];
         local_density += cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)];
         local_density += cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)];
         
@@ -309,13 +309,13 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
                + cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
                + cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]
                - (cells->speeds[3][ii*params.ny + jj]
-                  + cells->speeds[6][ii + jj*params.nx]
+                  + cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
                   + cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)]))
               / local_density;
         /* compute y velocity component */
         u_y = (cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]
                + cells->speeds[5][(params.ny + ii - jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
-               + cells->speeds[6][ii + jj*params.nx]
+               + cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
                - (cells->speeds[4][ii + jj*params.nx]
                   + cells->speeds[7][(params.ny + ii - jj) + jj*(params.nx + params.ny)]
                   + cells->speeds[8][(ii + jj) + jj*(params.nx + params.ny)]))
