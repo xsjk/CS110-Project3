@@ -11,8 +11,7 @@
 #define NSPEEDS         9
 #define NUM_THREADS     28
 
-typedef struct
-{
+typedef struct {
   int    nx;            /* no. of cells in x-direction */
   int    ny;            /* no. of cells in y-direction */
   int    maxIters;      /* no. of iterations */
@@ -24,8 +23,7 @@ typedef struct
 } t_param;
 
 /* struct to hold the distribution of different speeds */
-typedef struct
-{
+typedef struct {
   float *speeds[NSPEEDS];
 } t_speed;
 

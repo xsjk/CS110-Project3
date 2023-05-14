@@ -3,17 +3,16 @@
 #include <assert.h>
 
 /* The main processes in one step */
-int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter);
-int streaming(const t_param params, t_speed* cells);
-int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter);
+int collision(const t_param params, t_speed *cells, float *obstacles, int n_iter);
+int streaming(const t_param params, t_speed *cells);
+int boundary(const t_param params, t_speed *cells, float *inlets, int n_iter);
 
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
 ** collision(), obstacle(), streaming() & boundary()
 */
-int timestep(const t_param params, t_speed* cells, float* inlets, float* obstacles, int n_iter)
-{
+int timestep(const t_param params, t_speed *cells, float *inlets, float *obstacles, int n_iter) {
   /* The main time overhead, you should mainly optimize these processes. */
   collision(params, cells, obstacles, n_iter);
   streaming(params, cells);
@@ -22,32 +21,30 @@ int timestep(const t_param params, t_speed* cells, float* inlets, float* obstacl
 }
 
 /*
-** The collision of fluids in the cell is calculated using 
+** The collision of fluids in the cell is calculated using
 ** the local equilibrium distribution and relaxation process
 */
-int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter) {
+int collision(const t_param params, t_speed *cells, float *obstacles, int n_iter) {
   /* loop over the cells in the grid
   ** the collision step is called before
   ** the streaming step and so values of interest
   ** are in the scratch-space grid */
-  #pragma omp parallel for
-  for (int jj = 0; jj < params.ny; jj++)
-  {
-    for (int ii = 0; ii < params.nx; ii+=8)
-    {
-      __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj*params.nx]); // load our mask
+#pragma omp parallel for
+  for (int jj = 0; jj < params.ny; jj++) {
+    for (int ii = 0; ii < params.nx; ii += 8) {
+      __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj * params.nx]); // load our mask
       __m256 omega = _mm256_set1_ps(params.omega);
 
       float *speeds[NSPEEDS] = {
-        &cells->speeds[0][ii + jj*params.nx],
-        &cells->speeds[1][ii + jj*params.nx],
-        &cells->speeds[2][ii + jj*params.nx],
-        &cells->speeds[3][ii + jj*params.nx],
-        &cells->speeds[4][ii + jj*params.nx],
-        &cells->speeds[5][ii + jj*params.nx],
-        &cells->speeds[6][ii + jj*params.nx],
-        &cells->speeds[7][ii + jj*params.nx],
-        &cells->speeds[8][ii + jj*params.nx]
+        &cells->speeds[0][ii + jj * params.nx],
+        &cells->speeds[1][ii + jj * params.nx],
+        &cells->speeds[2][ii + jj * params.nx],
+        &cells->speeds[3][ii + jj * params.nx],
+        &cells->speeds[4][ii + jj * params.nx],
+        &cells->speeds[5][ii + jj * params.nx],
+        &cells->speeds[6][ii + jj * params.nx],
+        &cells->speeds[7][ii + jj * params.nx],
+        &cells->speeds[8][ii + jj * params.nx]
       };
 
       __m256 s[NSPEEDS] = {
@@ -61,7 +58,7 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
         _mm256_loadu_ps(speeds[7]),
         _mm256_loadu_ps(speeds[8])
       };
-      
+
       /* compute local density total */
       __m256 local_density = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8];
       __m256 _local_density = 3 / local_density;
@@ -82,8 +79,8 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
         u[5] * u[5] * half,
         u[6] * u[6] * half,
       };
-      __m256 _sq = _mm256_fmadd_ps(usq[0] + usq[1], _mm256_set1_ps(-1.f/3.f), _mm256_set1_ps(1.f));
-      
+      __m256 _sq = _mm256_fmadd_ps(usq[0] + usq[1], _mm256_set1_ps(-1.f / 3.f), _mm256_set1_ps(1.f));
+
       __m256 w0 = 4.f / 9.f * local_density;
       __m256 w1 = 1.f / 9.f * local_density;
       __m256 w2 = 1.f / 36.f * local_density;
@@ -98,7 +95,7 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
       _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
       _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
       _mm256_storeu_ps(speeds[8], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[8] + usq[3]), s[8]), s[8]), s[6], mask));
-      
+
     }
   }
   return EXIT_SUCCESS;
@@ -107,7 +104,7 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
 /*
 ** Particles flow to the corresponding cell according to their speed direaction.
 */
-int streaming(const t_param params, t_speed* cells) {
+int streaming(const t_param params, t_speed *cells) {
   cells->speeds[1] -= 1;
   cells->speeds[2] -= params.nx;
   cells->speeds[3] += 1;
@@ -120,67 +117,67 @@ int streaming(const t_param params, t_speed* cells) {
 }
 
 /*
-** Work with boundary conditions. The upper and lower boundaries use the rebound plane, 
-** the left border is the inlet of fixed speed, and 
+** Work with boundary conditions. The upper and lower boundaries use the rebound plane,
+** the left border is the inlet of fixed speed, and
 ** the right border is the open outlet of the first-order approximation.
 */
-int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
+int boundary(const t_param params, t_speed *cells, float *inlets, int n_iter) {
   /* Set the constant coefficient */
-  const float cst1 = 2.0/3.0;
-  const float cst2 = 1.0/6.0;
-  const float cst3 = 1.0/2.0;
+  const float cst1 = 2.0 / 3.0;
+  const float cst2 = 1.0 / 6.0;
+  const float cst3 = 1.0 / 2.0;
 
-  int ii, jj; 
+  int ii, jj;
   float local_density;
-  for(ii = 0; ii < params.nx; ii++){
+  for (ii = 0; ii < params.nx; ii++) {
     // top wall (bounce)
-    jj = params.ny -1;
-    cells->speeds[4][ii + jj*params.nx] = cells->speeds[2][ii +   (jj + 1)*params.nx];
-    cells->speeds[7][ii + jj*params.nx] = cells->speeds[5][ii+1 + (jj + 1)*params.nx];
-    cells->speeds[8][ii + jj*params.nx] = cells->speeds[6][ii-1 + (jj + 1)*params.nx];
+    jj = params.ny - 1;
+    cells->speeds[4][ii + jj * params.nx] = cells->speeds[2][ii + (jj + 1) * params.nx];
+    cells->speeds[7][ii + jj * params.nx] = cells->speeds[5][ii + 1 + (jj + 1) * params.nx];
+    cells->speeds[8][ii + jj * params.nx] = cells->speeds[6][ii - 1 + (jj + 1) * params.nx];
     // bottom wall (bounce)
     jj = 0;
-    cells->speeds[2][ii + jj*params.nx] = cells->speeds[4][ii +   (jj - 1)*params.nx];
-    cells->speeds[5][ii + jj*params.nx] = cells->speeds[7][ii-1 + (jj - 1)*params.nx];
-    cells->speeds[6][ii + jj*params.nx] = cells->speeds[8][ii+1 + (jj - 1)*params.nx];
+    cells->speeds[2][ii + jj * params.nx] = cells->speeds[4][ii + (jj - 1) * params.nx];
+    cells->speeds[5][ii + jj * params.nx] = cells->speeds[7][ii - 1 + (jj - 1) * params.nx];
+    cells->speeds[6][ii + jj * params.nx] = cells->speeds[8][ii + 1 + (jj - 1) * params.nx];
   }
 
   // left wall (inlet)
   ii = 0;
-  for(jj = 0; jj < params.ny; jj++){
-    local_density = ( cells->speeds[0][ii + jj*params.nx]
-                      + cells->speeds[2][ii + jj*params.nx]
-                      + cells->speeds[4][ii + jj*params.nx]
-                      + 2.0 * cells->speeds[3][ii + jj*params.nx]
-                      + 2.0 * cells->speeds[6][ii + jj*params.nx]
-                      + 2.0 * cells->speeds[7][ii + jj*params.nx]
-                      )/(1.0 - inlets[jj]);
+  for (jj = 0; jj < params.ny; jj++) {
+    local_density = (cells->speeds[0][ii + jj * params.nx]
+                     + cells->speeds[2][ii + jj * params.nx]
+                     + cells->speeds[4][ii + jj * params.nx]
+                     + 2.0 * cells->speeds[3][ii + jj * params.nx]
+                     + 2.0 * cells->speeds[6][ii + jj * params.nx]
+                     + 2.0 * cells->speeds[7][ii + jj * params.nx]
+                     ) / (1.0 - inlets[jj]);
 
-    cells->speeds[1][ii + jj*params.nx] = cells->speeds[3][ii + jj*params.nx]
-                                        + cst1*local_density*inlets[jj];
+    cells->speeds[1][ii + jj * params.nx] = cells->speeds[3][ii + jj * params.nx]
+      + cst1 * local_density * inlets[jj];
 
-    cells->speeds[5][ii + jj*params.nx] = cells->speeds[7][ii + jj*params.nx]
-                                        - cst3*(cells->speeds[2][ii + jj*params.nx]-cells->speeds[4][ii + jj*params.nx])
-                                        + cst2*local_density*inlets[jj];
+    cells->speeds[5][ii + jj * params.nx] = cells->speeds[7][ii + jj * params.nx]
+      - cst3 * (cells->speeds[2][ii + jj * params.nx] - cells->speeds[4][ii + jj * params.nx])
+      + cst2 * local_density * inlets[jj];
 
-    cells->speeds[8][ii + jj*params.nx] = cells->speeds[6][ii + jj*params.nx]
-                                        + cst3*(cells->speeds[2][ii + jj*params.nx]-cells->speeds[4][ii + jj*params.nx])
-                                        + cst2*local_density*inlets[jj];
-  
+    cells->speeds[8][ii + jj * params.nx] = cells->speeds[6][ii + jj * params.nx]
+      + cst3 * (cells->speeds[2][ii + jj * params.nx] - cells->speeds[4][ii + jj * params.nx])
+      + cst2 * local_density * inlets[jj];
+
   }
 
   // right wall (outlet)
-  ii = params.nx-1;
-  for(jj = 0; jj < params.ny; jj++){
-    cells->speeds[0][ii + jj*params.nx] = cells->speeds[0][ii-1 + jj*params.nx];
-    cells->speeds[1][ii + jj*params.nx] = cells->speeds[1][ii-1 + jj*params.nx];
-    cells->speeds[2][ii + jj*params.nx] = cells->speeds[2][ii-1 + jj*params.nx];
-    cells->speeds[3][ii + jj*params.nx] = cells->speeds[3][ii-1 + jj*params.nx];
-    cells->speeds[4][ii + jj*params.nx] = cells->speeds[4][ii-1 + jj*params.nx];
-    cells->speeds[5][ii + jj*params.nx] = cells->speeds[5][ii-1 + jj*params.nx];
-    cells->speeds[6][ii + jj*params.nx] = cells->speeds[6][ii-1 + jj*params.nx];
-    cells->speeds[7][ii + jj*params.nx] = cells->speeds[7][ii-1 + jj*params.nx];
-    cells->speeds[8][ii + jj*params.nx] = cells->speeds[8][ii-1 + jj*params.nx];
+  ii = params.nx - 1;
+  for (jj = 0; jj < params.ny; jj++) {
+    cells->speeds[0][ii + jj * params.nx] = cells->speeds[0][ii - 1 + jj * params.nx];
+    cells->speeds[1][ii + jj * params.nx] = cells->speeds[1][ii - 1 + jj * params.nx];
+    cells->speeds[2][ii + jj * params.nx] = cells->speeds[2][ii - 1 + jj * params.nx];
+    cells->speeds[3][ii + jj * params.nx] = cells->speeds[3][ii - 1 + jj * params.nx];
+    cells->speeds[4][ii + jj * params.nx] = cells->speeds[4][ii - 1 + jj * params.nx];
+    cells->speeds[5][ii + jj * params.nx] = cells->speeds[5][ii - 1 + jj * params.nx];
+    cells->speeds[6][ii + jj * params.nx] = cells->speeds[6][ii - 1 + jj * params.nx];
+    cells->speeds[7][ii + jj * params.nx] = cells->speeds[7][ii - 1 + jj * params.nx];
+    cells->speeds[8][ii + jj * params.nx] = cells->speeds[8][ii - 1 + jj * params.nx];
   }
   return EXIT_SUCCESS;
 }
