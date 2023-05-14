@@ -26,6 +26,14 @@ evaluate: all
 	mkdir -p $(RESULTS_DIR)
 	./$(EXE) $(PARAMS_DIR)/evaluate.params $(OBSTACLES_DIR)/CS110.dat 
 
+small: all
+	mkdir -p $(RESULTS_DIR)
+	./$(EXE) $(PARAMS_DIR)/small.params $(OBSTACLES_DIR)/none.dat 
+
+final: all
+	mkdir -p $(RESULTS_DIR)
+	./$(EXE) $(PARAMS_DIR)/final.params $(OBSTACLES_DIR)/CS110.dat
+
 plot:
 	gnuplot $(SCRIPTS_DIR)/final_state.plt
 
