@@ -41,7 +41,7 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
       float *speeds[NSPEEDS] = {
         &cells->speeds[0][ii + jj*params.nx],
         &cells->speeds[1][ii + jj*params.nx],
-        &cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx],
+        &cells->speeds[2][ii + jj*params.nx],
         &cells->speeds[3][ii + jj*params.nx],
         &cells->speeds[4][ii + jj*params.nx],
         &cells->speeds[5][ii + jj*params.nx],
@@ -109,7 +109,7 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
 */
 int streaming(const t_param params, t_speed* cells) {
   cells->speeds[1] -= 1;
-  cells->speeds[2] += params.nx;
+  cells->speeds[2] -= params.nx;
   cells->speeds[3] += 1;
   cells->speeds[4] += params.nx;
   cells->speeds[5] -= params.nx + 1;
@@ -135,12 +135,12 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
   for(ii = 0; ii < params.nx; ii++){
     // top wall (bounce)
     jj = params.ny -1;
-    cells->speeds[4][ii + jj*params.nx] = cells->speeds[2][ii + (params.ny - 1 - jj - 1)*params.nx];
+    cells->speeds[4][ii + jj*params.nx] = cells->speeds[2][ii +   (jj + 1)*params.nx];
     cells->speeds[7][ii + jj*params.nx] = cells->speeds[5][ii+1 + (jj + 1)*params.nx];
     cells->speeds[8][ii + jj*params.nx] = cells->speeds[6][ii-1 + (jj + 1)*params.nx];
     // bottom wall (bounce)
     jj = 0;
-    cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx] = cells->speeds[4][ii + (jj - 1)*params.nx];
+    cells->speeds[2][ii + jj*params.nx] = cells->speeds[4][ii +   (jj - 1)*params.nx];
     cells->speeds[5][ii + jj*params.nx] = cells->speeds[7][ii-1 + (jj - 1)*params.nx];
     cells->speeds[6][ii + jj*params.nx] = cells->speeds[8][ii+1 + (jj - 1)*params.nx];
   }
@@ -149,7 +149,7 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
   ii = 0;
   for(jj = 0; jj < params.ny; jj++){
     local_density = ( cells->speeds[0][ii + jj*params.nx]
-                      + cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]
+                      + cells->speeds[2][ii + jj*params.nx]
                       + cells->speeds[4][ii + jj*params.nx]
                       + 2.0 * cells->speeds[3][ii + jj*params.nx]
                       + 2.0 * cells->speeds[6][ii + jj*params.nx]
@@ -160,11 +160,11 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
                                         + cst1*local_density*inlets[jj];
 
     cells->speeds[5][ii + jj*params.nx] = cells->speeds[7][ii + jj*params.nx]
-                                        - cst3*(cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]-cells->speeds[4][ii + jj*params.nx])
+                                        - cst3*(cells->speeds[2][ii + jj*params.nx]-cells->speeds[4][ii + jj*params.nx])
                                         + cst2*local_density*inlets[jj];
 
     cells->speeds[8][ii + jj*params.nx] = cells->speeds[6][ii + jj*params.nx]
-                                        + cst3*(cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]-cells->speeds[4][ii + jj*params.nx])
+                                        + cst3*(cells->speeds[2][ii + jj*params.nx]-cells->speeds[4][ii + jj*params.nx])
                                         + cst2*local_density*inlets[jj];
   
   }
@@ -174,7 +174,7 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
   for(jj = 0; jj < params.ny; jj++){
     cells->speeds[0][ii + jj*params.nx] = cells->speeds[0][ii-1 + jj*params.nx];
     cells->speeds[1][ii + jj*params.nx] = cells->speeds[1][ii-1 + jj*params.nx];
-    cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx] = cells->speeds[2][ii-1 + (params.ny - 1 - jj) * params.nx];
+    cells->speeds[2][ii + jj*params.nx] = cells->speeds[2][ii-1 + jj*params.nx];
     cells->speeds[3][ii + jj*params.nx] = cells->speeds[3][ii-1 + jj*params.nx];
     cells->speeds[4][ii + jj*params.nx] = cells->speeds[4][ii-1 + jj*params.nx];
     cells->speeds[5][ii + jj*params.nx] = cells->speeds[5][ii-1 + jj*params.nx];

@@ -91,7 +91,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   if (cells->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[5] = _mm_malloc(sizeof(float) * (params.ny * params.nx + params.maxIters * (params.nx + 1)), ALIGNED);
   if (cells->speeds[5] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[6] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
+  cells->speeds[6] = _mm_malloc(sizeof(float) * (params.ny * params.nx + params.maxIters * (params.nx - 1)), ALIGNED);
   if (cells->speeds[6] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[7] = _mm_malloc(sizeof(float) * (params.ny * params.nx + params.maxIters * (params.nx + 1)), ALIGNED);
   if (cells->speeds[7] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
@@ -125,10 +125,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
   for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
     cells->speeds[4][i] = w1;
     
-  for (int i = 0; i < (params.ny * params.nx + params.maxIters * (params.nx + 1)); i++) 
+  for (int i = 0; i < params.ny * params.nx + params.maxIters * (params.nx + 1); i++) 
     cells->speeds[5][i] = w2;
 
-  for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++) 
+  for (int i = 0; i < params.ny * params.nx + params.maxIters * (params.nx - 1); i++) 
     cells->speeds[6][i] = w2;
   
   for (int i = 0; i < params.ny * params.nx + params.maxIters * (params.nx + 1); i++)
@@ -138,6 +138,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
     cells->speeds[8][i] = w2;
 
   cells->speeds[1] += params.maxIters;
+  cells->speeds[2] += params.maxIters * params.nx;
   cells->speeds[5] += params.maxIters * (params.nx + 1);
   cells->speeds[6] += params.maxIters * (params.nx - 1);
 
@@ -189,7 +190,6 @@ int finalise(const t_param* params, t_speed* cells,
   /*
   ** _mm_free up allocated memory
   */
-  cells->speeds[2] -= params->nx * params->maxIters;
   cells->speeds[3] -= params->maxIters;
   cells->speeds[4] -= params->nx * params->maxIters;
   cells->speeds[7] -= (params->nx + 1) * params->maxIters;
@@ -241,7 +241,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, float* obs
 
         local_density += cells->speeds[0][ii + jj*params.nx];
         local_density += cells->speeds[1][ii + jj*params.nx];
-        local_density += cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx];
+        local_density += cells->speeds[2][ii + jj*params.nx];
         local_density += cells->speeds[3][ii + jj*params.nx];
         local_density += cells->speeds[4][ii + jj*params.nx];
         local_density += cells->speeds[5][ii + jj*params.nx];
@@ -258,7 +258,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, float* obs
                   + cells->speeds[7][ii + jj*params.nx]))
               / local_density;
         /* compute y velocity component */
-        u_y = (cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]
+        u_y = (cells->speeds[2][ii + jj*params.nx]
                + cells->speeds[5][ii + jj*params.nx]
                + cells->speeds[6][ii + jj*params.nx]
                - (cells->speeds[4][ii + jj*params.nx]
