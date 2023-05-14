@@ -139,6 +139,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
   cells->speeds[1] += params.maxIters;
   cells->speeds[5] += params.maxIters * (params.nx + 1);
+  cells->speeds[6] += params.maxIters * (params.nx - 1);
 
   /* first set all cells in obstacle array to zero */
   for (int i = 0; i < params.ny * params.nx; i++)
@@ -191,7 +192,6 @@ int finalise(const t_param* params, t_speed* cells,
   cells->speeds[2] -= params->nx * params->maxIters;
   cells->speeds[3] -= params->maxIters;
   cells->speeds[4] -= params->nx * params->maxIters;
-  cells->speeds[6] -= (params->nx + params->ny) * params->maxIters;
   cells->speeds[7] -= (params->nx + 1) * params->maxIters;
   cells->speeds[8] -= (params->nx - 1) * params->maxIters;
   for (int k=0; k<NSPEEDS; k++) {
@@ -245,7 +245,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, float* obs
         local_density += cells->speeds[3][ii + jj*params.nx];
         local_density += cells->speeds[4][ii + jj*params.nx];
         local_density += cells->speeds[5][ii + jj*params.nx];
-        local_density += cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)];
+        local_density += cells->speeds[6][ii + jj*params.nx];
         local_density += cells->speeds[7][ii + jj*params.nx];
         local_density += cells->speeds[8][ii + jj*params.nx];
         
@@ -254,13 +254,13 @@ int write_state(char* filename, const t_param params, t_speed* cells, float* obs
                + cells->speeds[5][ii + jj*params.nx]
                + cells->speeds[8][ii + jj*params.nx]
                - (cells->speeds[3][ii + jj*params.nx]
-                  + cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
+                  + cells->speeds[6][ii + jj*params.nx]
                   + cells->speeds[7][ii + jj*params.nx]))
               / local_density;
         /* compute y velocity component */
         u_y = (cells->speeds[2][ii + (params.ny - 1 - jj) * params.nx]
                + cells->speeds[5][ii + jj*params.nx]
-               + cells->speeds[6][(ii + jj) + (params.ny - 1 - jj)*(params.nx + params.ny)]
+               + cells->speeds[6][ii + jj*params.nx]
                - (cells->speeds[4][ii + jj*params.nx]
                   + cells->speeds[7][ii + jj*params.nx]
                   + cells->speeds[8][ii + jj*params.nx]))
