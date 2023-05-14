@@ -1,7 +1,7 @@
 # Makefile
 CC = gcc
-CFLAGS = -std=c11 -Wall -Ofast -march=native # -fopt-info-vec-optimized -fopt-info-vec-missed -fopt-info-vec-note -ftree-vectorize -ftree-vectorizer-verbose=2
-LIBS = -lm -fopenmp -fopenmp-simd
+CFLAGS = -std=c99 -Wall -O3 -march=native
+LIBS = -lm -fopenmp
 SRC = main.c d2q9_bgk.c calc.c utils.c 
 EXE=lbm
 
@@ -25,6 +25,14 @@ visual: clean
 evaluate: all
 	mkdir -p $(RESULTS_DIR)
 	./$(EXE) $(PARAMS_DIR)/evaluate.params $(OBSTACLES_DIR)/CS110.dat 
+
+small: all
+	mkdir -p $(RESULTS_DIR)
+	./$(EXE) $(PARAMS_DIR)/small.params $(OBSTACLES_DIR)/none.dat 
+
+final: all
+	mkdir -p $(RESULTS_DIR)
+	./$(EXE) $(PARAMS_DIR)/final.params $(OBSTACLES_DIR)/CS110.dat
 
 plot:
 	gnuplot $(SCRIPTS_DIR)/final_state.plt
