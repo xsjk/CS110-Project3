@@ -88,11 +88,11 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
       __m256 w2 = 1.f / 36.f * local_density;
 
       /* relaxation step */
-      _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
-      _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
-      _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
-      _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
-      _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
+      _mm256_store_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
+      _mm256_store_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
+      _mm256_store_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
+      _mm256_store_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
+      _mm256_store_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
       _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[5] + usq[2]), s[5]), s[5]), s[7], mask));
       _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
       _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
