@@ -2,7 +2,7 @@
 #include "string.h"
 #include "mm_malloc.h"
 
-#define ALIGNED 64
+#define ALIGNED 32
 
 /* utility functions */
 void die(const char* message, const int line, const char* file)
@@ -81,11 +81,11 @@ int initialise(const char* paramfile, const char* obstaclefile,
   // maxIters
   cells->speeds[0] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (cells->speeds[0] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[1] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
+  cells->speeds[1] = _mm_malloc(sizeof(float) * (params.ny * params.nx + params.maxIters), ALIGNED);
   if (cells->speeds[1] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[2] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[2] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[3] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
+  cells->speeds[3] = _mm_malloc(sizeof(float) * (params.ny * params.nx + params.maxIters), ALIGNED);
   if (cells->speeds[3] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[4] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
@@ -98,6 +98,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
   cells->speeds[8] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * (params.nx + params.ny)), ALIGNED);
   if (cells->speeds[8] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
 
+  for (int k=0; k<NSPEEDS; k++)
+    printf("speeds[%d]: %p\n", k, cells->speeds[k]);
 
   /* the map of obstacles */
   *obstacles_ptr = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
@@ -111,13 +113,13 @@ int initialise(const char* paramfile, const char* obstaclefile,
   for (int i = 0; i < params.nx * params.ny; i++)
     cells->speeds[0][i] = w0;
 
-  for (int i = 0; i < params.nx * params.ny; i++)
+  for (int i = 0; i < params.nx * params.ny + params.maxIters; i++)
     cells->speeds[1][i] = w1;
   
   for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
     cells->speeds[2][i] = w1;
 
-  for (int i = 0; i < params.nx * params.ny; i++)
+  for (int i = 0; i < params.nx * params.ny + params.maxIters; i++)
     cells->speeds[3][i] = w1;
   
   for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
@@ -135,6 +137,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   for (int i = 0; i < (params.nx + params.ny) * (params.ny + params.maxIters); i++)
     cells->speeds[8][i] = w2;
 
+  cells->speeds[1] += params.maxIters;
 
   /* first set all cells in obstacle array to zero */
   for (int i = 0; i < params.ny * params.nx; i++)
@@ -184,16 +187,17 @@ int finalise(const t_param* params, t_speed* cells,
   /*
   ** _mm_free up allocated memory
   */
-  _mm_free(cells->speeds[0]);
-  _mm_free(cells->speeds[1]);
-  _mm_free(cells->speeds[2] - params->nx * params->maxIters);
-  _mm_free(cells->speeds[3]);
-  _mm_free(cells->speeds[4] - params->nx * params->maxIters);
-  _mm_free(cells->speeds[5] - (params->nx + params->ny) * params->maxIters);
-  _mm_free(cells->speeds[6] - (params->nx + params->ny) * params->maxIters);
-  _mm_free(cells->speeds[7] - (params->nx + params->ny) * params->maxIters);
-  _mm_free(cells->speeds[8] - (params->nx + params->ny) * params->maxIters);
-  
+  cells->speeds[2] -= params->nx * params->maxIters;
+  cells->speeds[3] -= params->maxIters;
+  cells->speeds[4] -= params->nx * params->maxIters;
+  cells->speeds[5] -= (params->nx + params->ny) * params->maxIters;
+  cells->speeds[6] -= (params->nx + params->ny) * params->maxIters;
+  cells->speeds[7] -= (params->nx + params->ny) * params->maxIters;
+  cells->speeds[8] -= (params->nx + params->ny) * params->maxIters;
+  for (int k=0; k<NSPEEDS; k++) {
+    printf("speeds[%d]: %p\n", k, cells->speeds[k]);
+    _mm_free(cells->speeds[k]);
+  }
 
   _mm_free(*obstacles_ptr);
   *obstacles_ptr = NULL;

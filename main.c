@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 #ifdef VISUAL
     if (tt % 1000 == 0) {
       sprintf(buf, "%s/visual/state_%d.dat", out_dir , tt / 1000);
-      write_state(buf, params, cells, obstacles);
+      write_state(buf, params, &cells, obstacles);
     }
 #endif
   }

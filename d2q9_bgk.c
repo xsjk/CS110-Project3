@@ -1,9 +1,10 @@
 #include "d2q9_bgk.h"
 #include <immintrin.h>
+#include <assert.h>
 
 /* The main processes in one step */
 int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter);
-int streaming(const t_param params, t_speed* cells, int n_iter);
+int streaming(const t_param params, t_speed* cells);
 int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter);
 
 /*
@@ -15,7 +16,7 @@ int timestep(const t_param params, t_speed* cells, float* inlets, float* obstacl
 {
   /* The main time overhead, you should mainly optimize these processes. */
   collision(params, cells, obstacles, n_iter);
-  streaming(params, cells, n_iter);
+  streaming(params, cells);
   boundary(params, cells, inlets, n_iter);
   return EXIT_SUCCESS;
 }
@@ -88,11 +89,11 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
       __m256 w2 = 1.f / 36.f * local_density;
 
       /* relaxation step */
-      _mm256_store_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
-      _mm256_store_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
-      _mm256_store_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
-      _mm256_store_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
-      _mm256_store_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
+      _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
+      _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
+      _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
+      _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
+      _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
       _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[5] + usq[2]), s[5]), s[5]), s[7], mask));
       _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
       _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
@@ -106,22 +107,15 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
 /*
 ** Particles flow to the corresponding cell according to their speed direaction.
 */
-int streaming(const t_param params, t_speed* cells, int n_iter) {
-
+int streaming(const t_param params, t_speed* cells) {
+  cells->speeds[1] -= 1;
   cells->speeds[2] += params.nx;
+  cells->speeds[3] += 1;
   cells->speeds[4] += params.nx;
   cells->speeds[5] += params.nx + params.ny;
   cells->speeds[6] += params.nx + params.ny;
   cells->speeds[7] += params.nx + params.ny;
   cells->speeds[8] += params.nx + params.ny;
-
-  #pragma omp parallel for
-  for (int jj = 0; jj < params.ny; jj++)
-    for (int ii = 1; ii < params.nx; ii++) {
-      cells->speeds[3][(ii-1) + jj*params.nx] = cells->speeds[3][ii + jj*params.nx]; /* west */
-      cells->speeds[1][(params.nx-1 - (ii-1)) + jj*params.nx] = cells->speeds[1][(params.nx-1 - ii) + jj*params.nx]; /* east */
-    }
-
   return EXIT_SUCCESS;
 }
 
@@ -138,7 +132,6 @@ int boundary(const t_param params, t_speed* cells, float* inlets, int n_iter) {
 
   int ii, jj; 
   float local_density;
-  
   for(ii = 0; ii < params.nx; ii++){
     // top wall (bounce)
     jj = params.ny -1;
