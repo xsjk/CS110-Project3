@@ -81,11 +81,11 @@ int initialise(const char* paramfile, const char* obstaclefile,
   // maxIters
   cells->speeds[0] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (cells->speeds[0] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[1] = _mm_malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)), ALIGNED);
+  cells->speeds[1] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (cells->speeds[1] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[2] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[2] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
-  cells->speeds[3] = _mm_malloc(sizeof(float) * (params.ny * (params.nx + params.maxIters)), ALIGNED);
+  cells->speeds[3] = _mm_malloc(sizeof(float) * (params.ny * params.nx), ALIGNED);
   if (cells->speeds[3] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
   cells->speeds[4] = _mm_malloc(sizeof(float) * ((params.ny + params.maxIters) * params.nx), ALIGNED);
   if (cells->speeds[4] == NULL) die("cannot allocate memory for cells", __LINE__, __FILE__);
@@ -111,13 +111,13 @@ int initialise(const char* paramfile, const char* obstaclefile,
   for (int i = 0; i < params.nx * params.ny; i++)
     cells->speeds[0][i] = w0;
 
-  for (int i = 0; i < (params.nx + params.maxIters) * params.ny; i++)
+  for (int i = 0; i < params.nx * params.ny; i++)
     cells->speeds[1][i] = w1;
   
   for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
     cells->speeds[2][i] = w1;
 
-  for (int i = 0; i < (params.nx + params.maxIters) * params.ny; i++)
+  for (int i = 0; i < params.nx * params.ny; i++)
     cells->speeds[3][i] = w1;
   
   for (int i = 0; i < params.nx * (params.ny + params.maxIters); i++)
@@ -137,13 +137,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
 
   /* first set all cells in obstacle array to zero */
-  for (int jj = 0; jj < params.ny; jj++)
-  {
-    for (int ii = 0; ii < params.nx; ii++)
-    {
-      (*obstacles_ptr)[ii + jj*params.nx] = 0;
-    }
-  }
+  for (int i = 0; i < params.ny * params.nx; i++)
+    (*obstacles_ptr)[i] = 0;
 
   /* open the obstacle data file */
   fp = fopen(obstaclefile, "r");

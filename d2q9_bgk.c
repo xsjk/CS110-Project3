@@ -1,8 +1,6 @@
 #include "d2q9_bgk.h"
 #include <immintrin.h>
 
-#define swap(a, b) {float tmp = a; a = b; b = tmp;}
-
 /* The main processes in one step */
 int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter);
 int streaming(const t_param params, t_speed* cells, int n_iter);
@@ -36,6 +34,9 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
   {
     for (int ii = 0; ii < params.nx; ii+=8)
     {
+      __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj*params.nx]); // load our mask
+      __m256 omega = _mm256_set1_ps(params.omega);
+
       float *speeds[NSPEEDS] = {
         &cells->speeds[0][ii + jj*params.nx],
         &cells->speeds[1][ii + jj*params.nx],
@@ -60,44 +61,42 @@ int collision(const t_param params, t_speed* cells, float* obstacles, int n_iter
         _mm256_loadu_ps(speeds[8])
       };
       
-        /* compute local density total */
-        __m256 local_density = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8];
-        __m256 _local_density = 3 / local_density;
-        __m256 u[NSPEEDS];
-        u[1] = ((s[1] + s[5] + s[8]) - (s[3] + s[6] + s[7])) * _local_density;
-        u[2] = ((s[2] + s[5] + s[6]) - (s[4] + s[7] + s[8])) * _local_density;
-        u[3] = -u[1];
-        u[4] = -u[2];
-        u[5] = u[1] + u[2];
-        u[6] = u[2] - u[1];
-        u[7] = -u[5];
-        u[8] = -u[6];
+      /* compute local density total */
+      __m256 local_density = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8];
+      __m256 _local_density = 3 / local_density;
+      __m256 u[NSPEEDS];
+      u[1] = ((s[1] + s[5] + s[8]) - (s[3] + s[6] + s[7])) * _local_density;
+      u[2] = ((s[2] + s[5] + s[6]) - (s[4] + s[7] + s[8])) * _local_density;
+      u[3] = -u[1];
+      u[4] = -u[2];
+      u[5] = u[1] + u[2];
+      u[6] = u[2] - u[1];
+      u[7] = -u[5];
+      u[8] = -u[6];
 
-        __m256 half = _mm256_set1_ps(.5);
-        __m256 usq[4] = {
-          u[1] * u[1] * half,
-          u[2] * u[2] * half,
-          u[5] * u[5] * half,
-          u[6] * u[6] * half,
-        };
-        __m256 _sq = _mm256_fmadd_ps(usq[0] + usq[1], _mm256_set1_ps(-1.f/3.f), _mm256_set1_ps(1.f));
-        __m256 omega = _mm256_set1_ps(params.omega);
-        
-        __m256 w0 = 4.f / 9.f * local_density;
-        __m256 w1 = 1.f / 9.f * local_density;
-        __m256 w2 = 1.f / 36.f * local_density;
+      __m256 half = _mm256_set1_ps(.5);
+      __m256 usq[4] = {
+        u[1] * u[1] * half,
+        u[2] * u[2] * half,
+        u[5] * u[5] * half,
+        u[6] * u[6] * half,
+      };
+      __m256 _sq = _mm256_fmadd_ps(usq[0] + usq[1], _mm256_set1_ps(-1.f/3.f), _mm256_set1_ps(1.f));
+      
+      __m256 w0 = 4.f / 9.f * local_density;
+      __m256 w1 = 1.f / 9.f * local_density;
+      __m256 w2 = 1.f / 36.f * local_density;
 
-        /* relaxation step */
-        __m256 mask = _mm256_loadu_ps(&obstacles[ii + jj*params.nx]); // load our mask
-        _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
-        _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
-        _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
-        _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
-        _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
-        _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[5] + usq[2]), s[5]), s[5]), s[7], mask));
-        _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
-        _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
-        _mm256_storeu_ps(speeds[8], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[8] + usq[3]), s[8]), s[8]), s[6], mask));
+      /* relaxation step */
+      _mm256_storeu_ps(speeds[0], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w0, _sq, s[0]), s[0]), s[0], mask));
+      _mm256_storeu_ps(speeds[1], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[1] + usq[0]), s[1]), s[1]), s[3], mask));
+      _mm256_storeu_ps(speeds[2], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[2] + usq[1]), s[2]), s[2]), s[4], mask));
+      _mm256_storeu_ps(speeds[3], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[3] + usq[0]), s[3]), s[3]), s[1], mask));
+      _mm256_storeu_ps(speeds[4], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w1, (_sq + u[4] + usq[1]), s[4]), s[4]), s[2], mask));
+      _mm256_storeu_ps(speeds[5], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[5] + usq[2]), s[5]), s[5]), s[7], mask));
+      _mm256_storeu_ps(speeds[6], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[6] + usq[3]), s[6]), s[6]), s[8], mask));
+      _mm256_storeu_ps(speeds[7], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[7] + usq[2]), s[7]), s[7]), s[5], mask));
+      _mm256_storeu_ps(speeds[8], _mm256_blendv_ps(_mm256_fmadd_ps(omega, _mm256_fmsub_ps(w2, (_sq + u[8] + usq[3]), s[8]), s[8]), s[6], mask));
       
     }
   }
